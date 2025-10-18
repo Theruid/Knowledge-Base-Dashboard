@@ -1,0 +1,86 @@
+# Docker Compose configuration
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./knsystem.db:/app/knsystem.db
+      - ./server:/app/server
+      # Don't mount node_modules from host to container
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      # Configure RAG API URL to use the retrieve service
+      - RAG_API_URL=http://retrieve:8099/rag/retrieve/
+    restart: unless-stopped
+    # Use Docker's default bridge network
+    networks:
+      - app-network
+    # Custom DNS configuration
+    dns:
+      - 178.22.122.100
+      - 185.51.200.2
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+      # Don't mount node_modules from host to container
+    environment:
+      # Use the API URL that will be proxied by Vite
+      - VITE_API_URL=/api
+    depends_on:
+      - server
+    restart: unless-stopped
+    networks:
+      - app-network
+    # Custom DNS configuration
+    dns:
+      - 178.22.122.100
+      - 185.51.200.2
+      
+  retrieve:
+    build:
+      context: .
+      dockerfile: Dockerfile.retrieve
+    ports:
+      - "8099:8099"
+    volumes:
+      # Windows paths for development
+      # - ./retrieve_docs.py:/app/retrieve_docs.py
+      # - ./initiate_vdb.py:/app/initiate_vdb.py
+      # - E:/Models&VDB/saved_models:/app/saved_models
+      # - E:/Models&VDB/VectorDB:/app/VectorDB
+      # - E:/Models&VDB/Zips:/app/Zips
+      # - ./knsystem.db:/app/knsystem.db
+      # Linux paths (commented out)
+      - /home/ubuntu/data_management/retrieve_docs.py:/app/retrieve_docs.py
+      - /home/ubuntu/data_management/initiate_vdb.py:/app/initiate_vdb.py
+      - /home/ubuntu/Models_VDB/saved_models/:/app/saved_models
+      - /home/ubuntu/Models_VDB/VectorDB:/app/VectorDB
+      - /home/ubuntu/Models_VDB/rag_api/Zips:/app/Zips
+      - /home/ubuntu/data_management/knsystem.db:/app/knsystem.db
+
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - app-network
+    # Custom DNS configuration
+    dns:
+      - 178.22.122.100
+      - 185.51.200.2
+
+
+# Define a custom network to ensure proper communication
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,33 @@
+FROM python:3.10
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.retrieve.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.retrieve.txt
+
+# Copy the scripts
+COPY retrieve_docs.py .
+COPY initiate_vdb.py .
+
+# Create directories for models
+RUN mkdir -p /app/saved_models/information_retrieval/25540/ \
+    /app/saved_models/models--BAAI--bge-reranker-v2-m3/snapshots/12e974610ba9083ed95f3edf08d7e899581f4de4 \
+    /app/VectorDB/
+
+# Expose the port (assuming port 8099 based on the curl example in the script)
+EXPOSE 8099
+
+# Create a simple FastAPI app to serve the retrieve_docs functionality
+COPY app.py .
+
+# Run the FastAPI app
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8099"]

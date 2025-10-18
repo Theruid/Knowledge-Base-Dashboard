@@ -1,0 +1,26 @@
+# Core web dependencies
+fastapi>=0.103.1
+uvicorn>=0.23.2
+pydantic>=2.3.0
+httpx>=0.24.1
+
+# LangChain dependencies
+langchain>=0.0.335
+langchain-community>=0.0.13
+langchain-huggingface>=0.0.2
+langchain-chroma>=0.2.3  # Using higher version
+langchain-text-splitters>=0.0.1
+
+# Vector database
+chromadb>=0.4.18
+
+# ML/NLP dependencies
+hazm>=0.7.0  # Persian text processing
+transformers>=4.33.2
+torch
+sentence-transformers>=2.2.2
+numpy<2.0
+
+# Other utilities
+pyyaml>=6.0
+# sqlite3 is built into Python, no need to install via pip
