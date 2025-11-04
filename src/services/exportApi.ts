@@ -67,17 +67,4 @@ export const exportApi = {
     });
   },
 
-  // Initiate vector database creation
-  initiateVectorDB: (): Promise<{ success: boolean; message: string }> => {
-    // Use the FastAPI endpoint instead of the old Express endpoint
-    return fetch(`${config.fastApiUrl}/initiate_vdb`, {
-      method: 'GET',
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to start vector database initialization');
-      }
-      return response.json();
-    });
-  }
 };

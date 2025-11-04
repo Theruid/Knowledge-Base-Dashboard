@@ -17,14 +17,12 @@ const AdminPanel: React.FC = () => {
     import: boolean;
     notes: boolean;
     clearConversations: boolean;
-    vectorDB: boolean;
   }>({
     knowledge: false,
     conversations: false,
     import: false,
     notes: false,
-    clearConversations: false,
-    vectorDB: false
+    clearConversations: false
   });
   
   // State for clear conversations modal
@@ -133,26 +131,6 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleInitiateVectorDB = async () => {
-    try {
-      setLoading({ ...loading, vectorDB: true });
-      setExportError(null);
-      setExportSuccess(null);
-      setImportError(null);
-      setImportSuccess(null);
-
-      // Call the updated FastAPI endpoint
-      await exportApi.initiateVectorDB();
-
-      setExportSuccess('Vector database initialization started. This may take several minutes.');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start vector database initialization';
-      setExportError(errorMessage);
-      console.error('Error initiating vector database:', err);
-    } finally {
-      setLoading({ ...loading, vectorDB: false });
-    }
-  };
 
   const handleImportConversations = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -292,19 +270,6 @@ const AdminPanel: React.FC = () => {
                 </p>
               </div>
 
-              <div>
-                <Button
-                  variant="primary"
-                  icon={<Database size={16} />}
-                  onClick={handleInitiateVectorDB}
-                  isLoading={loading.vectorDB}
-                >
-                  Initialize Vector Database
-                </Button>
-                <p className="mt-2 text-sm text-gray-500">
-                  Create or update the vector database from the knowledge base. This may take several minutes.
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>

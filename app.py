@@ -4,7 +4,6 @@ from pydantic import BaseModel
 import logging
 import os
 from retrieve_docs import information_retrieve
-from initiate_vdb import initiate_vector_database  
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,10 +27,6 @@ class TextRequest(BaseModel):
 async def root():
     return {"message": "RAG API Service is running"}
 
-@app.get("/initiate_vdb")
-async def initiate_vdb():
-    initiate_vector_database()
-    return {"message": "Vector database initiated successfully"}
 
 @app.post("/rag/retrieve/")
 async def retrieve(request: TextRequest):

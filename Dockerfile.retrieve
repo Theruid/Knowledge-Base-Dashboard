@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir -r requirements.retrieve.txt
 
 # Copy the scripts
 COPY retrieve_docs.py .
-COPY initiate_vdb.py .
 
 # Create directories for models
 RUN mkdir -p /app/saved_models/information_retrieval/25540/ \

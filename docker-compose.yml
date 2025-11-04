@@ -56,17 +56,13 @@ services:
     volumes:
       # Windows paths for development
       # - ./retrieve_docs.py:/app/retrieve_docs.py
-      # - ./initiate_vdb.py:/app/initiate_vdb.py
       # - E:/Models&VDB/saved_models:/app/saved_models
       # - E:/Models&VDB/VectorDB:/app/VectorDB
-      # - E:/Models&VDB/Zips:/app/Zips
       # - ./knsystem.db:/app/knsystem.db
       # Linux paths (commented out)
       - /home/ubuntu/data_management/retrieve_docs.py:/app/retrieve_docs.py
-      - /home/ubuntu/data_management/initiate_vdb.py:/app/initiate_vdb.py
       - /home/ubuntu/Models_VDB/saved_models/:/app/saved_models
       - /home/ubuntu/Models_VDB/VectorDB:/app/VectorDB
-      - /home/ubuntu/Models_VDB/rag_api/Zips:/app/Zips
       - /home/ubuntu/data_management/knsystem.db:/app/knsystem.db
 
     environment:
