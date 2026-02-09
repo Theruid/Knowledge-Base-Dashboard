@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, MessageCircle, Settings, Menu, X, Server, ChevronDown, ChevronRight, LayoutDashboard, Shield } from 'lucide-react';
+import { Database, MessageCircle, Settings, Menu, X, Server, ChevronDown, ChevronRight, LayoutDashboard, Shield, Bot } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -14,38 +14,49 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [apiExpanded, setApiExpanded] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  
+
   const toggleApiSection = () => {
     setApiExpanded(!apiExpanded);
   };
-  
+
   const navItems = [
-    { 
-      icon: <LayoutDashboard size={20} />, 
-      label: 'Dashboard', 
+    {
+      icon: <LayoutDashboard size={20} />,
+      label: 'Dashboard',
       path: '/dashboard',
-      active: currentPath === '/dashboard'
+      active: currentPath === '/dashboard',
+      roles: ['admin', 'user']
     },
-    { 
-      icon: <Database size={20} />, 
-      label: 'Knowledge Base', 
+    {
+      icon: <Database size={20} />,
+      label: 'Knowledge Base',
       path: '/knowledge',
-      active: currentPath === '/knowledge'
+      active: currentPath === '/knowledge',
+      roles: ['admin', 'user']
     },
-    { 
-      icon: <MessageCircle size={20} />, 
-      label: 'Analyze Conversation', 
+    {
+      icon: <MessageCircle size={20} />,
+      label: 'Analyze Conversation',
       path: '/conversation',
-      active: currentPath === '/conversation'
+      active: currentPath === '/conversation',
+      roles: ['admin', 'user']
     },
-    { 
-      icon: <Server size={20} />, 
-      label: 'API', 
+    {
+      icon: <Bot size={20} />,
+      label: 'Chatbot',
+      path: '/chatbot',
+      active: currentPath === '/chatbot',
+      roles: ['admin', 'user', 'chatbot']
+    },
+    {
+      icon: <Server size={20} />,
+      label: 'API',
       path: '#',
       active: currentPath.startsWith('/api'),
       expandable: true,
       expanded: apiExpanded,
       toggle: toggleApiSection,
+      roles: ['admin', 'user'],
       subItems: [
         {
           label: 'Retrieve From RAG',
@@ -61,20 +72,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     },
     // Admin panel link - only visible for admin users
     ...(isAdmin ? [
-      { 
-        icon: <Shield size={20} />, 
-        label: 'Admin Panel', 
+      {
+        icon: <Shield size={20} />,
+        label: 'Admin Panel',
         path: '/admin',
-        active: currentPath === '/admin'
+        active: currentPath === '/admin',
+        roles: ['admin']
       }
     ] : []),
-    { 
-      icon: <Settings size={20} />, 
-      label: 'Settings', 
+    {
+      icon: <Settings size={20} />,
+      label: 'Settings',
       path: '/settings',
-      active: currentPath === '/settings' 
+      active: currentPath === '/settings',
+      roles: ['admin', 'user', 'chatbot']
     },
-  ];
+  ].filter(item => !item.roles || item.roles.includes(user?.role || 'user'));
 
   // Animation classes based on sidebar state
   const sidebarClass = isOpen
@@ -85,14 +98,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
           onClick={toggleSidebar}
         />
       )}
-      
+
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`
           fixed left-0 top-0 z-30 h-full w-64 bg-gray-900 text-white 
           transform transition-transform duration-300 ease-in-out
@@ -104,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <Database className="text-blue-400" />
             <h1 className="text-xl font-bold">Knowledge DB</h1>
           </div>
-          <button 
+          <button
             onClick={toggleSidebar}
             className="p-1 rounded-full hover:bg-gray-800 md:hidden"
             aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
@@ -112,14 +125,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <X size={20} />
           </button>
         </div>
-        
+
         <nav className="mt-6">
           <ul>
             {navItems.map((item, index) => (
               <li key={index}>
                 {item.expandable ? (
                   <div>
-                    <div 
+                    <div
                       className={`
                         flex items-center justify-between px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white
                         transition-colors duration-200 cursor-pointer
@@ -158,7 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     )}
                   </div>
                 ) : (
-                  <Link 
+                  <Link
                     to={item.path}
                     className={`
                       flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white
@@ -175,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             ))}
           </ul>
         </nav>
-        
+
         <div className="absolute bottom-0 w-full p-4 border-t border-gray-800">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
@@ -188,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           </div>
         </div>
       </aside>
-      
+
       {/* Mobile toggle button */}
       <button
         onClick={toggleSidebar}

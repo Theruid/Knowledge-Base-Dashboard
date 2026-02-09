@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
 COPY package*.json ./
 
 # Clean install dependencies
-RUN npm ci
+RUN npm install
+
 
 COPY . .
 

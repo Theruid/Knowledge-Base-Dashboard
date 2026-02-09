@@ -51,11 +51,11 @@ if (!adminExists) {
   const saltRounds = 10;
   const adminPassword = 'admin123';
   const hashedPassword = bcrypt.hashSync(adminPassword, saltRounds);
-  
+
   // Insert admin user
   const stmt = db.prepare('INSERT INTO Users (username, email, password, is_activated, role) VALUES (?, ?, ?, ?, ?)');
   stmt.run('admin', 'admin@example.com', hashedPassword, 1, 'admin');
-  
+
   console.log('Admin user created with username: admin and password: admin123');
 }
 
@@ -94,6 +94,21 @@ db.exec(`
     name TEXT NOT NULL UNIQUE,
     color TEXT DEFAULT '#3b82f6',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// chatbot_feedback table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chatbot_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    username TEXT,
+    message TEXT NOT NULL,
+    response TEXT NOT NULL,
+    feedback_type TEXT NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id)
   )
 `);
 

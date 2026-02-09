@@ -10,6 +10,7 @@ import { proxyRoutes } from './routes/proxy.js';
 import { noteRoutes } from './routes/notes.js';
 import tagRoutes from './routes/tags.js';
 import { authRoutes, authenticateToken } from './routes/auth.js';
+import chatbotRoutes from './routes/chatbot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,6 +31,7 @@ app.use('/api/import', importRoutes);
 app.use('/api/proxy', proxyRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
