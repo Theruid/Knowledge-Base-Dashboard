@@ -167,7 +167,8 @@ const Chatbot: React.FC = () => {
                 await chatbotFeedbackApi.submitFeedback({
                     message: userMessage.content,
                     response: botMessage.content,
-                    feedbackType: 'positive'
+                    feedbackType: 'positive',
+                    sessionId
                 });
                 setFeedbackGiven(prev => new Set(prev).add(messageIndex));
             } catch (error) {
@@ -184,7 +185,8 @@ const Chatbot: React.FC = () => {
                 message: currentFeedback.message,
                 response: currentFeedback.response,
                 feedbackType: 'negative',
-                reason: feedbackReason
+                reason: feedbackReason,
+                sessionId
             });
 
             // Find which message this was for and mark as rated

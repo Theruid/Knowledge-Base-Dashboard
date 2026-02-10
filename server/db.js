@@ -135,6 +135,10 @@ if (!checkColumn('chatbot_feedback', 'message_index')) {
   db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN message_index INTEGER`);
 }
 
+if (!checkColumn('chatbot_feedback', 'session_id')) {
+  db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN session_id TEXT`);
+}
+
 // chatbot_conversations table - for storing chatbot chat sessions
 db.exec(`
   CREATE TABLE IF NOT EXISTS chatbot_conversations (

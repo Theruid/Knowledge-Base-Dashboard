@@ -8,12 +8,28 @@ export interface FeedbackRequest {
     source?: 'chatbot' | 'conversation';
     conversationId?: string;
     messageIndex?: number;
+    sessionId?: string;
 }
 
 export interface FeedbackResponse {
     success: boolean;
     message: string;
     feedbackId?: number;
+}
+
+export interface Feedback {
+    id: number;
+    user_id: number;
+    username: string;
+    message: string;
+    response: string;
+    feedback_type: 'positive' | 'negative';
+    reason?: string;
+    source: 'chatbot' | 'conversation';
+    conversation_id?: string;
+    session_id?: string;
+    message_index?: number;
+    created_at: string;
 }
 
 export const chatbotFeedbackApi = {

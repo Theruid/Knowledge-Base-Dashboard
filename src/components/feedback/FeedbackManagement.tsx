@@ -15,6 +15,7 @@ interface Feedback {
     reason?: string;
     source: 'chatbot' | 'conversation';
     conversation_id?: string;
+    session_id?: string;
     message_index?: number;
     created_at: string;
 }
@@ -106,6 +107,15 @@ const FeedbackManagement: React.FC = () => {
         return text.substring(0, maxLength) + '...';
     };
 
+    const getIdLabel = (feedback: Feedback) => {
+        if (feedback.source === 'conversation' && feedback.conversation_id) {
+            return feedback.conversation_id;
+        } else if (feedback.source === 'chatbot' && feedback.session_id) {
+            return feedback.session_id;
+        }
+        return null;
+    };
+
     return (
         <Layout title="Feedback Management">
             <div className="space-y-6">
@@ -176,6 +186,7 @@ const FeedbackManagement: React.FC = () => {
                     <div className="space-y-4">
                         {feedbacks.map((feedback) => {
                             const isExpanded = expandedFeedback === feedback.id;
+                            const idLabel = getIdLabel(feedback);
                             return (
                                 <Card
                                     key={feedback.id}
@@ -193,6 +204,13 @@ const FeedbackManagement: React.FC = () => {
                                                         <ThumbsUp size={20} className="text-green-600" />
                                                     ) : (
                                                         <ThumbsDown size={20} className="text-red-600" />
+                                                    )}
+
+                                                    {/* ID Badge (if available) */}
+                                                    {idLabel && (
+                                                        <span className="text-xs px-2 py-1 rounded bg-gray-300 text-gray-800 font-mono">
+                                                            {idLabel}
+                                                        </span>
                                                     )}
 
                                                     {/* Username and source */}

@@ -7,7 +7,7 @@ const router = express.Router();
 // Submit chatbot feedback (unified for both chatbot and conversations)
 router.post('/feedback', authenticateToken, async (req, res) => {
   try {
-    const { message, response, feedbackType, reason, source = 'chatbot', conversationId, messageIndex } = req.body;
+    const { message, response, feedbackType, reason, source = 'chatbot', conversationId, messageIndex, sessionId } = req.body;
     const userId = req.user.id;
     const username = req.user.username;
 
@@ -28,8 +28,8 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 
     // Insert feedback with source
     const stmt = db.prepare(`
-      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -41,7 +41,8 @@ router.post('/feedback', authenticateToken, async (req, res) => {
       reason || null,
       source,
       conversationId || null,
-      messageIndex !== undefined ? messageIndex : null
+      messageIndex !== undefined ? messageIndex : null,
+      sessionId || null
     );
 
     res.json({
@@ -151,7 +152,7 @@ router.get('/feedback', authenticateToken, async (req, res) => {
       : '';
 
     const feedbacks = db.prepare(`
-      SELECT id, user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, created_at
+      SELECT id, user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id, created_at
       FROM chatbot_feedback
       ${whereClause}
       ORDER BY created_at DESC
