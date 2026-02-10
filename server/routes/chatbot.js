@@ -4,49 +4,371 @@ import { authenticateToken } from './auth.js';
 
 const router = express.Router();
 
-// Submit chatbot feedback
+// Submit chatbot feedback (unified for both chatbot and conversations)
 router.post('/feedback', authenticateToken, async (req, res) => {
-    try {
-        const { message, response, feedbackType, reason } = req.body;
-        const userId = req.user.id;
-        const username = req.user.username;
+  try {
+    const { message, response, feedbackType, reason, source = 'chatbot', conversationId, messageIndex } = req.body;
+    const userId = req.user.id;
+    const username = req.user.username;
 
-        // Validate input
-        if (!message || !response || !feedbackType) {
-            return res.status(400).json({
-                success: false,
-                message: 'Message, response, and feedback type are required'
-            });
-        }
+    // Validate input
+    if (!message || !response || !feedbackType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message, response, and feedback type are required'
+      });
+    }
 
-        if (!['positive', 'negative'].includes(feedbackType)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Feedback type must be either positive or negative'
-            });
-        }
+    if (!['positive', 'negative'].includes(feedbackType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback type must be either positive or negative'
+      });
+    }
 
-        // Insert feedback
-        const stmt = db.prepare(`
-      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason)
-      VALUES (?, ?, ?, ?, ?, ?)
+    // Insert feedback with source
+    const stmt = db.prepare(`
+      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-        const result = stmt.run(userId, username, message, response, feedbackType, reason || null);
+    const result = stmt.run(
+      userId,
+      username,
+      message,
+      response,
+      feedbackType,
+      reason || null,
+      source,
+      conversationId || null,
+      messageIndex !== undefined ? messageIndex : null
+    );
 
-        res.json({
-            success: true,
-            message: 'Feedback submitted successfully',
-            feedbackId: result.lastInsertRowid
-        });
-    } catch (error) {
-        console.error('Error submitting feedback:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error submitting feedback',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+    res.json({
+      success: true,
+      message: 'Feedback submitted successfully',
+      feedbackId: result.lastInsertRowid
+    });
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error submitting feedback',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get feedback statistics (admin only) - supports filtering by source
+router.get('/feedback-stats', authenticateToken, async (req, res) => {
+  try {
+    const { source } = req.query; // 'chatbot', 'conversation', or undefined (all)
+
+    let whereClause = '';
+    let params = [];
+
+    if (source) {
+      whereClause = ' WHERE source = ?';
+      params = [source];
     }
+
+    const positiveCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${whereClause}`).get('positive', ...params);
+    const negativeCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${whereClause}`).get('negative', ...params);
+    const totalCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback${whereClause}`).get(...params);
+
+    res.json({
+      success: true,
+      stats: {
+        totalPositive: positiveCount.count,
+        totalNegative: negativeCount.count,
+        total: totalCount.count
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching feedback stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching feedback statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get user message statistics (admin only)
+router.get('/user-stats', authenticateToken, async (req, res) => {
+  try {
+    // Count messages per user from chatbot_feedback (each feedback = 1 user message + 1 bot response)
+    const userStats = db.prepare(`
+      SELECT username, COUNT(*) as messageCount
+      FROM chatbot_feedback
+      WHERE username IS NOT NULL
+      GROUP BY username
+      ORDER BY messageCount DESC
+    `).all();
+
+    res.json({
+      success: true,
+      stats: userStats
+    });
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get all feedbacks (admin and user only) - supports filtering
+router.get('/feedback', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is not chatbot role
+    if (req.user.role === 'chatbot') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Chatbot role cannot access feedback management.'
+      });
+    }
+
+    const { feedbackType, source } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+
+    if (feedbackType && ['positive', 'negative'].includes(feedbackType)) {
+      whereConditions.push('feedback_type = ?');
+      params.push(feedbackType);
+    }
+
+    if (source && ['chatbot', 'conversation'].includes(source)) {
+      whereConditions.push('source = ?');
+      params.push(source);
+    }
+
+    const whereClause = whereConditions.length > 0
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
+
+    const feedbacks = db.prepare(`
+      SELECT id, user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, created_at
+      FROM chatbot_feedback
+      ${whereClause}
+      ORDER BY created_at DESC
+    `).all(...params);
+
+    res.json({
+      success: true,
+      feedbacks
+    });
+  } catch (error) {
+    console.error('Error fetching feedbacks:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching feedbacks',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Delete feedback (admin and user only)
+router.delete('/feedback/:id', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is not chatbot role
+    if (req.user.role === 'chatbot') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Chatbot role cannot delete feedback.'
+      });
+    }
+
+    const { id } = req.params;
+
+    // Check if feedback exists
+    const feedback = db.prepare('SELECT id FROM chatbot_feedback WHERE id = ?').get(id);
+
+    if (!feedback) {
+      return res.status(404).json({
+        success: false,
+        message: 'Feedback not found'
+      });
+    }
+
+    // Delete the feedback
+    db.prepare('DELETE FROM chatbot_feedback WHERE id = ?').run(id);
+
+    res.json({
+      success: true,
+      message: 'Feedback deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting feedback:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting feedback',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Save chatbot conversation message
+router.post('/conversation/save', authenticateToken, async (req, res) => {
+  try {
+    const { session_id, role, message } = req.body;
+    const userId = req.user.id;
+    const username = req.user.username;
+
+    // Validate input
+    if (!session_id || !role || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'session_id, role, and message are required'
+      });
+    }
+
+    if (!['user', 'assistant'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role must be either user or assistant'
+      });
+    }
+
+    // Insert conversation message
+    const stmt = db.prepare(`
+      INSERT INTO chatbot_conversations (session_id, user_id, username, role, message)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(session_id, userId, username, role, message);
+
+    res.json({
+      success: true,
+      message: 'Conversation message saved successfully',
+      id: result.lastInsertRowid
+    });
+  } catch (error) {
+    console.error('Error saving conversation message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving conversation message',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get all chatbot conversation sessions (grouped by session_id)
+router.get('/conversations', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is not chatbot role
+    if (req.user.role === 'chatbot') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Chatbot role cannot access conversation management.'
+      });
+    }
+
+    const { page = 1, limit = 10, search = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Build search condition
+    let searchCondition = '';
+    let searchParams = [];
+
+    if (search) {
+      searchCondition = 'AND (cc.message LIKE ? OR cc.username LIKE ? OR cc.session_id LIKE ?)';
+      const searchPattern = `%${search}%`;
+      searchParams = [searchPattern, searchPattern, searchPattern];
+    }
+
+    // Get total count of unique sessions
+    const totalQuery = `
+      SELECT COUNT(DISTINCT session_id) as total
+      FROM chatbot_conversations cc
+      WHERE 1=1 ${searchCondition}
+    `;
+    const totalResult = db.prepare(totalQuery).get(...searchParams);
+    const total = totalResult.total;
+
+    // Get sessions with message count and latest message info
+    const sessionsQuery = `
+      SELECT 
+        cc.session_id,
+        cc.username,
+        cc.user_id,
+        COUNT(cc.id) as message_count,
+        MAX(cc.created_at) as last_message_time,
+        (SELECT message FROM chatbot_conversations 
+         WHERE session_id = cc.session_id 
+         ORDER BY created_at DESC LIMIT 1) as last_message
+      FROM chatbot_conversations cc
+      WHERE 1=1 ${searchCondition}
+      GROUP BY cc.session_id
+      ORDER BY last_message_time DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const sessions = db.prepare(sessionsQuery).all(...searchParams, parseInt(limit), parseInt(offset));
+
+    res.json({
+      success: true,
+      sessions,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalSessions: total,
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching conversations',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get messages for a specific chatbot conversation session
+router.get('/conversations/:session_id', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is not chatbot role
+    if (req.user.role === 'chatbot') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Chatbot role cannot access conversation details.'
+      });
+    }
+
+    const { session_id } = req.params;
+
+    const messages = db.prepare(`
+      SELECT id, role, message, created_at
+      FROM chatbot_conversations
+      WHERE session_id = ?
+      ORDER BY created_at ASC
+    `).all(session_id);
+
+    if (messages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      session_id,
+      messages
+    });
+  } catch (error) {
+    console.error('Error fetching conversation messages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching conversation messages',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 export default router;

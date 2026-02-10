@@ -13,16 +13,16 @@ router.get('/list', async (req, res) => {
     const sortDirection = req.query.sortDirection || 'desc';
     const onlyAnalyzed = req.query.onlyAnalyzed === 'true'; // New filter parameter
     const offset = (page - 1) * limit;
-    
+
     // Validate sort field to prevent SQL injection
     const validSortFields = ['Conversation_ID', 'message_count'];
     const actualSortField = validSortFields.includes(sortField) ? sortField : 'Conversation_ID';
-    
+
     // Validate sort direction
-    const actualSortDirection = ['asc', 'desc'].includes(sortDirection.toLowerCase()) 
-      ? sortDirection.toLowerCase() 
+    const actualSortDirection = ['asc', 'desc'].includes(sortDirection.toLowerCase())
+      ? sortDirection.toLowerCase()
       : 'desc';
-    
+
     let query = `
       SELECT 
         c.Conversation_ID,
@@ -37,59 +37,59 @@ router.get('/list', async (req, res) => {
         GROUP BY conversation_id
       ) n ON c.Conversation_ID = n.conversation_id
     `;
-    
+
     // Base query for counting total conversations
-    let countQuery = onlyAnalyzed 
+    let countQuery = onlyAnalyzed
       ? `SELECT COUNT(DISTINCT a.Conversation_ID) as total FROM AnalayzeData a 
          INNER JOIN (SELECT DISTINCT conversation_id FROM conversation_notes) n ON a.Conversation_ID = n.conversation_id`
       : 'SELECT COUNT(DISTINCT a.Conversation_ID) as total FROM AnalayzeData a';
     let countParams = [];
-    
+
     const params = [];
     let whereConditions = [];
-    
+
     // Add search condition
     if (search) {
       // Check if search is a number (potential conversation ID)
       const isNumeric = !isNaN(search) && !isNaN(parseFloat(search));
-      
+
       if (isNumeric) {
         // Search by conversation ID
         whereConditions.push('c.Conversation_ID = ?');
         params.push(parseInt(search));
-        
+
         countQuery += ' WHERE a.Conversation_ID = ?';
         countParams = [parseInt(search)];
       } else {
         // Search by message content
         whereConditions.push('c.message LIKE ?');
         params.push(`%${search}%`);
-        
+
         countQuery += ' WHERE a.message LIKE ?';
         countParams = [`%${search}%`];
       }
     }
-    
+
     // Add analyzed filter condition
     if (onlyAnalyzed) {
       whereConditions.push('n.note_count > 0');
     }
-    
+
     // Add WHERE clause if there are conditions
     if (whereConditions.length > 0) {
       query += ' WHERE ' + whereConditions.join(' AND ');
     }
-    
+
     // Complete the queries
     query += ` GROUP BY c.Conversation_ID ORDER BY ${actualSortField === 'Conversation_ID' ? 'c.' + actualSortField : actualSortField} ${actualSortDirection} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
-    
+
     // Execute the count query
     const countResult = db.prepare(countQuery).get(...countParams);
-    
+
     // Execute the main query
     const conversations = db.prepare(query).all(...params);
-    
+
     res.json({
       success: true,
       total: countResult.total,
@@ -111,7 +111,7 @@ router.get('/list', async (req, res) => {
 router.get('/ids', (req, res) => {
   try {
     const result = db.prepare('SELECT DISTINCT Conversation_ID FROM AnalayzeData ORDER BY Conversation_ID').all();
-    
+
     res.json({
       success: true,
       data: result.map(item => item.Conversation_ID)
@@ -137,7 +137,7 @@ router.get('/analyzed-count', (req, res) => {
         FROM conversation_notes
       ) n ON c.Conversation_ID = n.conversation_id
     `).get();
-    
+
     res.json({
       success: true,
       data: result.count
@@ -156,18 +156,18 @@ router.get('/analyzed-count', (req, res) => {
 router.get('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const messages = db.prepare(
       'SELECT * FROM AnalayzeData WHERE Conversation_ID = ? ORDER BY Time'
     ).all(id);
-    
+
     if (messages.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Conversation not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: messages
@@ -186,29 +186,29 @@ router.get('/:id', (req, res) => {
 router.get('/stats/:id', (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Get total messages
     const totalMessages = db.prepare(
       'SELECT COUNT(*) as count FROM AnalayzeData WHERE Conversation_ID = ?'
     ).get(id);
-    
+
     // Get bot messages count
     const botMessages = db.prepare(
       'SELECT COUNT(*) as count FROM AnalayzeData WHERE Conversation_ID = ? AND IS_BOT = 1'
     ).get(id);
-    
+
     // Get user messages count
     const userMessages = db.prepare(
       'SELECT COUNT(*) as count FROM AnalayzeData WHERE Conversation_ID = ? AND IS_BOT = 0'
     ).get(id);
-    
+
     if (totalMessages.count === 0) {
       return res.status(404).json({
         success: false,
         message: 'Conversation not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -231,18 +231,18 @@ router.get('/stats/:id', (req, res) => {
 router.get('/by-lock/:lockNumber', (req, res) => {
   try {
     const { lockNumber } = req.params;
-    
+
     const conversations = db.prepare(
       'SELECT DISTINCT Conversation_ID FROM AnalayzeData WHERE LockNumber = ? ORDER BY Time DESC'
     ).all(lockNumber);
-    
+
     if (conversations.length === 0) {
       return res.json({
         success: true,
         data: []
       });
     }
-    
+
     res.json({
       success: true,
       data: conversations.map(item => item.Conversation_ID)
@@ -261,7 +261,7 @@ router.get('/by-lock/:lockNumber', (req, res) => {
 router.get('/daily-counts', (req, res) => {
   try {
     const days = parseInt(req.query.days) || 10;
-    
+
     // Query to get conversation counts per day for the last N days
     const result = db.prepare(`
       SELECT 
@@ -273,7 +273,7 @@ router.get('/daily-counts', (req, res) => {
       ORDER BY date DESC
       LIMIT ?
     `).all(days, days);
-    
+
     res.json({
       success: true,
       data: result

@@ -112,4 +112,47 @@ db.exec(`
   )
 `);
 
+// Add new columns to chatbot_feedback for unified feedback (chatbot + conversations)
+// SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we need to check first
+const checkColumn = (table, column) => {
+  try {
+    const result = db.prepare(`PRAGMA table_info(${table})`).all();
+    return result.some(col => col.name === column);
+  } catch (e) {
+    return false;
+  }
+};
+
+if (!checkColumn('chatbot_feedback', 'source')) {
+  db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN source TEXT DEFAULT 'chatbot'`);
+}
+
+if (!checkColumn('chatbot_feedback', 'conversation_id')) {
+  db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN conversation_id TEXT`);
+}
+
+if (!checkColumn('chatbot_feedback', 'message_index')) {
+  db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN message_index INTEGER`);
+}
+
+// chatbot_conversations table - for storing chatbot chat sessions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chatbot_conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id)
+  )
+`);
+
+// Create index on session_id for faster queries
+db.exec(`CREATE INDEX IF NOT EXISTS idx_session_id ON chatbot_conversations(session_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_user_id ON chatbot_conversations(user_id)`);
+
+
+
 export default db;

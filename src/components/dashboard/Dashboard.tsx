@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useKnowledge } from '../../contexts/KnowledgeContext';
 import { conversationApi } from '../../services/conversationApi';
+import { chatbotStatsApi, FeedbackStats, UserStats } from '../../services/chatbotStatsApi';
+import { chatbotConversationApi } from '../../services/chatbotConversationApi';
 import Layout from '../layout/Layout';
-import { Database, MessageCircle, FileText } from 'lucide-react';
+import { Database, MessageCircle, ThumbsUp, ThumbsDown, Users, Bot } from 'lucide-react';
 import { Card, CardContent } from '../ui/Card';
-import TagStatsComponent from './TagStats';
 
 interface StatCardProps {
   title: string;
@@ -34,45 +35,59 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, descript
 const Dashboard: React.FC = () => {
   const { totalEntries } = useKnowledge();
   const [totalConversations, setTotalConversations] = useState<number>(0);
-  const [analyzedCount, setAnalyzedCount] = useState<number>(0);
+  const [supportConversations, setSupportConversations] = useState<number>(0);
+  const [feedbackStats, setFeedbackStats] = useState<FeedbackStats>({ totalPositive: 0, totalNegative: 0, total: 0 });
+  const [userStats, setUserStats] = useState<UserStats[]>([]);
 
 
-  
 
-  
+
+
   // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       // Start fetching data
       try {
-        // Fetch total conversations
+        // Fetch total customer conversations
         const conversationsResponse = await conversationApi.getConversationList(1, 1);
         if (conversationsResponse.success && conversationsResponse.total) {
           setTotalConversations(conversationsResponse.total);
         }
-        
-        // Fetch analyzed conversations count
-        const analyzedResponse = await conversationApi.getAnalyzedCount();
-        if (analyzedResponse.success && analyzedResponse.data !== undefined) {
-          setAnalyzedCount(analyzedResponse.data);
+
+        // Fetch total support conversations
+        const supportResponse: any = await chatbotConversationApi.getAllSessions(1, 1);
+        if (supportResponse.success && supportResponse.pagination) {
+          setSupportConversations(supportResponse.pagination.totalSessions);
         }
-        
+
+
+        // Fetch chatbot feedback stats
+        const feedbackResponse = await chatbotStatsApi.getFeedbackStats();
+        if (feedbackResponse.success) {
+          setFeedbackStats(feedbackResponse.stats);
+        }
+
+        // Fetch user message stats
+        const userResponse = await chatbotStatsApi.getUserStats();
+        if (userResponse.success) {
+          setUserStats(userResponse.stats);
+        }
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       }
     };
-    
+
     fetchDashboardData();
   }, []);
-  
+
   return (
     <Layout title="Dashboard">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Knowledge Analytics Dashboard</h1>
         <p className="text-gray-600">Overview of your knowledge base and conversations</p>
       </div>
-      
+
       {/* Main stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
@@ -83,25 +98,79 @@ const Dashboard: React.FC = () => {
           description="Total entries in your knowledge base"
         />
         <StatCard
-          title="Total Conversations"
+          title="Customer Conversations"
           value={totalConversations}
           icon={<MessageCircle className="h-6 w-6 text-purple-600" />}
           color="bg-purple-100"
-          description="Overall number of conversations tracked"
+          description="Conversations from Excel/CSV imports"
         />
         <StatCard
-          title="Analyzed Conversations"
-          value={analyzedCount}
-          icon={<FileText className="h-6 w-6 text-green-600" />}
-          color="bg-green-100"
-          description="Conversations with analysis notes"
+          title="Support Conversations"
+          value={supportConversations}
+          icon={<Bot className="h-6 w-6 text-emerald-600" />}
+          color="bg-emerald-100"
+          description="Chatbot support sessions"
         />
       </div>
-      
-      {/* Tag statistics section */}
+
+      {/* Chatbot Statistics section */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Tag Distribution</h2>
-        <TagStatsComponent />
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Chatbot Feedback</h2>
+
+        {/* Feedback Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <StatCard
+            title="Positive Feedback"
+            value={feedbackStats.totalPositive}
+            icon={<ThumbsUp className="h-6 w-6 text-green-600" />}
+            color="bg-green-100"
+            description="Helpful responses"
+          />
+          <StatCard
+            title="Negative Feedback"
+            value={feedbackStats.totalNegative}
+            icon={<ThumbsDown className="h-6 w-6 text-red-600" />}
+            color="bg-red-100"
+            description="Responses needing improvement"
+          />
+          <StatCard
+            title="Total Feedback"
+            value={feedbackStats.total}
+            icon={<MessageCircle className="h-6 w-6 text-blue-600" />}
+            color="bg-blue-100"
+            description="All chatbot feedback"
+          />
+        </div>
+
+        {/* User Activity */}
+        {userStats.length > 0 && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center mb-4">
+                <Users className="h-5 w-5 text-purple-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-800">User Activity</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Messages Sent</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {userStats.map((stat, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{stat.username}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{stat.messageCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
     </Layout>

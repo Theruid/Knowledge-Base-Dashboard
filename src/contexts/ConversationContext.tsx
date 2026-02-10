@@ -69,7 +69,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   const [onlyAnalyzed, setOnlyAnalyzed] = useState<boolean>(false);
 
   const fetchConversations = async (
-    page = currentPage, 
+    page = currentPage,
     search = searchTerm,
     field = sortField,
     direction = sortDirection,
@@ -78,9 +78,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await conversationApi.getConversationList(page, 10, search, field, direction, analyzed);
-      
+
       if (response.success && response.data) {
         setConversations(response.data);
         setCurrentPage(response.page);
@@ -100,7 +100,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       setLoading(false);
     }
   };
-  
+
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -112,9 +112,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await conversationApi.getConversation(id);
-      
+
       if (response.success && response.data) {
         setConversationMessages(response.data);
       } else {
@@ -134,9 +134,9 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await conversationApi.getConversationStats(id);
-      
+
       if (response.success && response.data) {
         setConversationStats(response.data);
       } else {
@@ -151,13 +151,13 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       setLoading(false);
     }
   };
-  
+
   const fetchConversationNotes = async (id: number) => {
     try {
       setNotesLoading(true);
       const notes = await notesApi.getConversationNotes(id);
       setConversationNotes(notes);
-      
+
       // Also update the notes in the conversations list
       setConversations(prevConversations => {
         return prevConversations.map(conv => {
@@ -174,12 +174,12 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       setNotesLoading(false);
     }
   };
-  
+
   const addNote = async (data: CreateNoteRequest) => {
     try {
       setNotesLoading(true);
       await notesApi.addNote(data);
-      
+
       // Refresh notes for the conversation
       if (data.conversationId) {
         await fetchConversationNotes(data.conversationId);
@@ -192,12 +192,12 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       setNotesLoading(false);
     }
   };
-  
+
   const updateNote = async (id: number, data: UpdateNoteRequest) => {
     try {
       setNotesLoading(true);
       await notesApi.updateNote(id, data);
-      
+
       // Refresh notes for the current conversation
       if (selectedConversationId) {
         await fetchConversationNotes(selectedConversationId);
@@ -210,12 +210,12 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
       setNotesLoading(false);
     }
   };
-  
+
   const deleteNote = async (id: number) => {
     try {
       setNotesLoading(true);
       await notesApi.deleteNote(id);
-      
+
       // Refresh notes for the current conversation
       if (selectedConversationId) {
         await fetchConversationNotes(selectedConversationId);
@@ -233,7 +233,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
   useEffect(() => {
     fetchConversations(1, '');
   }, []);
-  
+
   // Handle search term changes with debounce
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -242,7 +242,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({ chil
 
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
-  
+
   // Handle sort changes
   useEffect(() => {
     fetchConversations(currentPage, searchTerm, sortField, sortDirection, onlyAnalyzed);

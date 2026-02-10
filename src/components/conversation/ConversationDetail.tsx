@@ -1,51 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useConversation } from '../../contexts/ConversationContext';
-import { MessageCircle, User, Bot, BarChart, Plus, Tag, Edit, Trash, X, Save, Check, Sparkles } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { MessageCircle, BarChart, X, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
-import { Note, CreateNoteRequest, UpdateNoteRequest } from '../../services/notesApi';
-import { tagsApi, Tag as TagType } from '../../services/tagsApi';
+import { chatbotFeedbackApi } from '../../services/chatbotFeedbackApi';
+import Modal from '../ui/Modal';
 
 const ConversationDetail: React.FC = () => {
   const {
     selectedConversationId,
     conversationMessages,
     conversationStats,
-    conversationNotes,
     loading,
-    notesLoading,
     error,
-    setSelectedConversationId,
-    addNote,
-    updateNote,
-    deleteNote
+    setSelectedConversationId
   } = useConversation();
-  
-  const [showAddNoteForm, setShowAddNoteForm] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
-  const [noteText, setNoteText] = useState('');
-  const [noteTags, setNoteTags] = useState<string[]>([]);
-  const [availableTags, setAvailableTags] = useState<TagType[]>([]);
-  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
-  const [tagsLoading, setTagsLoading] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  
-  // Fetch available tags
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        setTagsLoading(true);
-        const tags = await tagsApi.getAllTags();
-        setAvailableTags(tags);
-      } catch (error) {
-        console.error('Error fetching tags:', error);
-      } finally {
-        setTagsLoading(false);
-      }
-    };
-    
-    fetchTags();
-  }, []);
+
+  // Feedback state
+  const [feedbackModal, setFeedbackModal] = useState(false);
+  const [feedbackReason, setFeedbackReason] = useState('');
+  const [currentFeedback, setCurrentFeedback] = useState<{ message: string; response: string; messageIndex: number } | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState<Set<number>>(new Set());
 
   const formatTimestamp = (timestamp: string) => {
     try {
@@ -55,132 +30,64 @@ const ConversationDetail: React.FC = () => {
       return timestamp;
     }
   };
-  
-  const handleAddNote = async () => {
-    if (!selectedConversationId || !noteText.trim()) return;
-    
-    try {
-      const noteData: CreateNoteRequest = {
-        conversationId: selectedConversationId,
-        note: noteText,
-        tags: noteTags.length > 0 ? noteTags : undefined
-      };
-      
-      await addNote(noteData);
-      
-      // Reset form
-      setNoteText('');
-      setNoteTags([]);
-      setShowAddNoteForm(false);
-      setTagDropdownOpen(false);
-    } catch (error) {
-      console.error('Error adding note:', error);
-    }
-  };
-  
-  const handleUpdateNote = async () => {
-    if (!editingNoteId || !noteText.trim()) return;
-    
-    try {
-      const noteData: UpdateNoteRequest = {
-        note: noteText,
-        tags: noteTags.length > 0 ? noteTags : undefined
-      };
-      
-      await updateNote(editingNoteId, noteData);
-      
-      // Reset form
-      setNoteText('');
-      setNoteTags([]);
-      setEditingNoteId(null);
-      setTagDropdownOpen(false);
-    } catch (error) {
-      console.error('Error updating note:', error);
-    }
-  };
-  
-  const handleDeleteNote = async (noteId: number) => {
-    try {
-      await deleteNote(noteId);
-    } catch (error) {
-      console.error('Error deleting note:', error);
-    }
-  };
-  
-  const handleEditNote = (note: Note) => {
-    setEditingNoteId(note.id);
-    setNoteText(note.note);
-    setNoteTags(note.tags ? note.tags.split(',') : []);
-    setShowAddNoteForm(false); // Close add form if open
-  };
-  
-  const toggleTag = (tagName: string) => {
-    if (noteTags.includes(tagName)) {
-      setNoteTags(noteTags.filter(tag => tag !== tagName));
+
+  const handleFeedback = async (messageIndex: number, feedbackType: 'positive' | 'negative') => {
+    if (feedbackGiven.has(messageIndex) || !selectedConversationId) return;
+
+    // Find user message (previous message) and bot response
+    const botMessage = conversationMessages[messageIndex];
+    const userMessage = conversationMessages[messageIndex - 1];
+
+    if (!botMessage || !userMessage) return;
+
+    if (feedbackType === 'negative') {
+      setCurrentFeedback({
+        message: userMessage.message,
+        response: botMessage.message,
+        messageIndex
+      });
+      setFeedbackModal(true);
     } else {
-      setNoteTags([...noteTags, tagName]);
+      // Positive feedback - submit immediately
+      try {
+        await chatbotFeedbackApi.submitFeedback({
+          message: userMessage.message,
+          response: botMessage.message,
+          feedbackType: 'positive',
+          source: 'conversation',
+          conversationId: selectedConversationId.toString(),
+          messageIndex
+        });
+        setFeedbackGiven(prev => new Set(prev).add(messageIndex));
+      } catch (error) {
+        console.error('Error submitting feedback:', error);
+      }
     }
-  };
-  
-  const removeTag = (tagToRemove: string) => {
-    setNoteTags(noteTags.filter(tag => tag !== tagToRemove));
   };
 
-  const enhanceWithGemini = async () => {
-    if (!noteText.trim()) return;
-    
-    setIsEnhancing(true);
-    
+  const submitNegativeFeedback = async () => {
+    if (!currentFeedback || !selectedConversationId) return;
+
     try {
-      // Updated prompt to request Persian output
-      const prompt = `Please improve the following text by fixing grammar, enhancing clarity, and formatting it with markdown. The output should be in Persian language only. Return only the improved text without any additional commentary or explanations.\n\nText to improve:\n${noteText}`;
-      
-      // Using the backend proxy endpoint instead of directly calling Gemini API
-      const response = await fetch('/api/proxy/gemini/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt,
-          temperature: 0.2,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024
-        })
+      await chatbotFeedbackApi.submitFeedback({
+        message: currentFeedback.message,
+        response: currentFeedback.response,
+        feedbackType: 'negative',
+        reason: feedbackReason,
+        source: 'conversation',
+        conversationId: selectedConversationId.toString(),
+        messageIndex: currentFeedback.messageIndex
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Gemini API error:', errorData);
-        throw new Error(`Failed to enhance text with Gemini: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Gemini API response:', data); // Log the full response for debugging
-      const enhancedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (enhancedText) {
-        setNoteText(enhancedText);
-      } else {
-        throw new Error('No text returned from Gemini API');
-      }
+
+      setFeedbackGiven(prev => new Set(prev).add(currentFeedback.messageIndex));
+      setFeedbackModal(false);
+      setFeedbackReason('');
+      setCurrentFeedback(null);
     } catch (error) {
-      console.error('Error enhancing text with Gemini:', error);
-      alert('Failed to enhance text. Please try again.');
-    } finally {
-      setIsEnhancing(false);
+      console.error('Error submitting feedback:', error);
     }
   };
-  
-  const resetForm = () => {
-    setNoteText('');
-    setNoteTags([]);
-    setEditingNoteId(null);
-    setShowAddNoteForm(false);
-    setTagDropdownOpen(false);
-  };
-  
+
   if (!selectedConversationId) {
     return (
       <Card>
@@ -209,7 +116,7 @@ const ConversationDetail: React.FC = () => {
             {loading ? 'Loading...' : `${conversationMessages.length} messages`}
           </p>
         </div>
-        
+
         <Button
           variant="secondary"
           onClick={() => setSelectedConversationId(null)}
@@ -217,7 +124,7 @@ const ConversationDetail: React.FC = () => {
           Back to List
         </Button>
       </div>
-      
+
       {/* Error message */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -225,218 +132,14 @@ const ConversationDetail: React.FC = () => {
           <span className="block sm:inline"> {error}</span>
         </div>
       )}
-      
+
       {/* Loading state */}
       {loading && (
         <div className="flex justify-center items-center min-h-[200px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
-      
-      {/* Notes section */}
-      {!loading && selectedConversationId && (
-        <Card className="mb-6">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xl">Notes</CardTitle>
-            {!showAddNoteForm && !editingNoteId && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Plus size={16} />}
-                onClick={() => setShowAddNoteForm(true)}
-              >
-                Add Note
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {/* Note form */}
-            {(showAddNoteForm || editingNoteId) && (
-              <div className="border rounded-lg p-4 mb-4 bg-gray-50">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium">{editingNoteId ? 'Edit Note' : 'Add Note'}</h3>
-                  <button 
-                    onClick={resetForm}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="relative">
-                    <div className="flex items-center">
-                      <textarea
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                        rows={3}
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Enter your note here..."
-                        data-component-name="ConversationDetail"
-                      />
-                      <button
-                        onClick={enhanceWithGemini}
-                        disabled={isEnhancing || !noteText.trim()}
-                        className={`ml-2 p-2 rounded-md ${isEnhancing || !noteText.trim() ? 'text-gray-400' : 'text-yellow-600 hover:bg-yellow-100'}`}
-                        title="Enhance text with AI"
-                        type="button"
-                      >
-                        <Sparkles size={18} />
-                      </button>
-                    </div>
-                    {isEnhancing && (
-                      <div className="absolute right-12 top-2 text-xs text-gray-500">
-                        Enhancing...
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                    <div className="relative">
-                      <button
-                        onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
-                        className="w-full flex items-center justify-between p-2 border border-gray-300 rounded-md bg-white"
-                        type="button"
-                      >
-                        <span>{noteTags.length ? `${noteTags.length} tags selected` : 'Select tags...'}</span>
-                        <Tag size={16} />
-                      </button>
-                      
-                      {tagDropdownOpen && (
-                        <div className="fixed z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto overflow-x-hidden" style={{ maxWidth: "calc(100% - 4rem)", maxHeight: "300px" }}>
-                          {tagsLoading ? (
-                            <div className="p-2 text-center text-gray-500">Loading tags...</div>
-                          ) : availableTags.length > 0 ? (
-                            <div className="p-1">
-                              {availableTags.map(tag => (
-                                <div 
-                                  key={tag.id}
-                                  className="flex items-center p-2 hover:bg-gray-100 cursor-pointer"
-                                  onClick={() => toggleTag(tag.name)}
-                                >
-                                  <div 
-                                    className="w-3 h-3 rounded-full mr-2" 
-                                    style={{ backgroundColor: tag.color }}
-                                  ></div>
-                                  <span className="flex-1">{tag.name}</span>
-                                  {noteTags.includes(tag.name) && (
-                                    <Check size={16} className="text-green-500" />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="p-2 text-center text-gray-500">
-                              No tags available. Create tags in Settings.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {noteTags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {noteTags.map((tag, index) => {
-                          // Find the tag color if it exists in availableTags
-                          const tagObj = availableTags.find(t => t.name === tag);
-                          const tagColor = tagObj ? tagObj.color : '#3b82f6';
-                          
-                          return (
-                            <div key={index} className="flex items-center bg-blue-100 px-2 py-1 rounded-full">
-                              <div 
-                                className="w-2 h-2 rounded-full mr-1" 
-                                style={{ backgroundColor: tagColor }}
-                              ></div>
-                              <span className="text-blue-800 text-sm">{tag}</span>
-                              <button
-                                onClick={() => removeTag(tag)}
-                                className="ml-1 text-blue-800 hover:text-blue-900"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex justify-end">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<Save size={16} />}
-                      onClick={editingNoteId ? handleUpdateNote : handleAddNote}
-                      isLoading={notesLoading}
-                    >
-                      {editingNoteId ? 'Update' : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Notes list */}
-            {conversationNotes.length > 0 ? (
-              <div className="space-y-3">
-                {conversationNotes.map((note) => (
-                  <div key={note.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm">{note.note}</p>
-                      <div className="flex space-x-1 ml-2">
-                        <button 
-                          onClick={() => handleEditNote(note)}
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteNote(note.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <User size={14} className="text-gray-500 mr-1" />
-                      <span className="text-xs text-gray-600 font-medium">Author: {note.username || 'Unknown'}</span>
-                    </div>
-                    {note.tags && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {note.tags.split(',').map((tag, i) => {
-                          // Find the tag color if it exists in availableTags
-                          const tagObj = availableTags.find(t => t.name === tag);
-                          const tagColor = tagObj ? tagObj.color : '#3b82f6';
-                          
-                          return (
-                            <span 
-                              key={i} 
-                              className="px-2 py-1 text-white text-xs rounded-full flex items-center"
-                              style={{ backgroundColor: tagColor }}
-                            >
-                              {tag}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="mt-1 text-xs text-gray-500">
-                      {formatTimestamp(note.created_at)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-gray-500">
-                No notes added yet. Click "Add Note" to create one.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-      
+
       {/* Stats cards */}
       {!loading && conversationStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -451,7 +154,7 @@ const ConversationDetail: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="flex items-center p-6">
               <div className="bg-amber-100 p-3 rounded-full mr-4">
@@ -463,7 +166,7 @@ const ConversationDetail: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="flex items-center p-6">
               <div className="bg-green-100 p-3 rounded-full mr-4">
@@ -475,7 +178,7 @@ const ConversationDetail: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="flex items-center p-6">
               <div className="bg-red-100 p-3 rounded-full mr-4">
@@ -489,21 +192,20 @@ const ConversationDetail: React.FC = () => {
           </Card>
         </div>
       )}
-      
-      {/* Conversation messages */}
+
+      {/* Conversation messages with feedback buttons */}
       {!loading && conversationMessages.length > 0 && (
         <div className="space-y-4" dir="rtl">
           {conversationMessages.map((message, index) => (
-            <div 
+            <div
               key={index}
               className={`flex ${message.IS_BOT ? 'justify-start' : 'justify-end'}`}
             >
-              <div 
-                className={`max-w-3xl rounded-lg px-4 py-2 ${
-                  message.IS_BOT 
-                    ? 'bg-green-100 text-gray-800 border border-green-200' 
-                    : 'bg-blue-500 text-white'
-                }`}
+              <div
+                className={`max-w-3xl rounded-lg px-4 py-2 ${message.IS_BOT
+                  ? 'bg-green-100 text-gray-800 border border-green-200'
+                  : 'bg-blue-500 text-white'
+                  }`}
                 dir="rtl"
               >
                 <div className="flex items-center mb-1" dir="ltr">
@@ -512,6 +214,34 @@ const ConversationDetail: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-right">{message.message}</p>
+
+                {/* Feedback buttons for bot messages only */}
+                {message.IS_BOT && (
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-green-200" dir="ltr">
+                    <button
+                      onClick={() => handleFeedback(index, 'positive')}
+                      disabled={feedbackGiven.has(index)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.has(index)
+                        ? 'text-green-700 bg-green-200 cursor-not-allowed'
+                        : 'text-gray-600 hover:text-green-700 hover:bg-green-200'
+                        }`}
+                      title="Helpful"
+                    >
+                      <ThumbsUp size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleFeedback(index, 'negative')}
+                      disabled={feedbackGiven.has(index)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.has(index)
+                        ? 'text-red-700 bg-red-100 cursor-not-allowed'
+                        : 'text-gray-600 hover:text-red-700 hover:bg-red-100'
+                        }`}
+                      title="Not helpful"
+                    >
+                      <ThumbsDown size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -532,6 +262,51 @@ const ConversationDetail: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Feedback Modal */}
+      <Modal
+        isOpen={feedbackModal}
+        onClose={() => {
+          setFeedbackModal(false);
+          setFeedbackReason('');
+          setCurrentFeedback(null);
+        }}
+        title="Why wasn't this helpful?"
+      >
+        <div className="p-4">
+          <p className="mb-4 text-sm text-gray-600">
+            Please help us improve by telling us what went wrong:
+          </p>
+
+          <textarea
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            rows={4}
+            value={feedbackReason}
+            onChange={(e) => setFeedbackReason(e.target.value)}
+            placeholder="Tell us what went wrong..."
+          />
+
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={() => {
+                setFeedbackModal(false);
+                setFeedbackReason('');
+                setCurrentFeedback(null);
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submitNegativeFeedback}
+              disabled={!feedbackReason.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Feedback
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -6,7 +6,6 @@ import Button from '../ui/Button';
 import { Upload, Database, MessageCircle, AlertCircle, FileText, Trash2 } from 'lucide-react';
 import { exportApi } from '../../services/exportApi';
 import { dataApi } from '../../services/dataApi';
-import TagsManager from '../settings/TagsManager';
 import Modal from '../ui/Modal';
 
 const AdminPanel: React.FC = () => {
@@ -24,7 +23,7 @@ const AdminPanel: React.FC = () => {
     notes: false,
     clearConversations: false
   });
-  
+
   // State for clear conversations modal
   const [showClearModal, setShowClearModal] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -170,14 +169,14 @@ const AdminPanel: React.FC = () => {
       setLoading({ ...loading, clearConversations: true });
       setImportError(null);
       setImportSuccess(null);
-      
+
       if (confirmationText !== 'Delete') {
         setImportError('You must type "Delete" to confirm clearing the conversation table');
         return;
       }
-      
+
       const response = await dataApi.clearConversations(confirmationText);
-      
+
       if (response.success) {
         setImportSuccess(`Successfully cleared ${response.deletedCount || 0} conversations from the database`);
         setShowClearModal(false);
@@ -193,7 +192,7 @@ const AdminPanel: React.FC = () => {
       setLoading({ ...loading, clearConversations: false });
     }
   };
-  
+
   const triggerFileInput = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -255,21 +254,6 @@ const AdminPanel: React.FC = () => {
                   Export all conversations as a CSV file.
                 </p>
               </div>
-
-              <div>
-                <Button
-                  variant="primary"
-                  icon={<FileText size={16} />}
-                  onClick={handleExportNotes}
-                  isLoading={loading.notes}
-                >
-                  Export Conversation Notes
-                </Button>
-                <p className="mt-2 text-sm text-gray-500">
-                  Export all conversation notes and tags as a CSV file.
-                </p>
-              </div>
-
             </div>
           </CardContent>
         </Card>
@@ -290,7 +274,7 @@ const AdminPanel: React.FC = () => {
                   >
                     Import Conversations
                   </Button>
-                  
+
                   <Button
                     variant="danger"
                     icon={<Trash2 size={16} />}
@@ -300,7 +284,7 @@ const AdminPanel: React.FC = () => {
                     Clear Conversation Table
                   </Button>
                 </div>
-                
+
                 <p className="mt-2 text-sm text-gray-500">
                   Import conversations from a CSV file. The file should have the following columns: Conversation_ID, IS_BOT, message, Time, LockNumber, Metric1, Metric2.
                   <br />
@@ -329,11 +313,8 @@ const AdminPanel: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Tag Management */}
-        <TagsManager />
       </div>
-      
+
       {/* Clear Conversations Modal */}
       <Modal
         isOpen={showClearModal}
@@ -347,11 +328,11 @@ const AdminPanel: React.FC = () => {
           <div className="mb-4 text-red-600 font-semibold">
             Warning: This action will permanently delete all conversations from the database.
           </div>
-          
+
           <p className="mb-4">
             To confirm, please type "Delete" in the field below:
           </p>
-          
+
           <input
             type="text"
             className="w-full p-2 border border-gray-300 rounded mb-4"
@@ -359,7 +340,7 @@ const AdminPanel: React.FC = () => {
             onChange={(e) => setConfirmationText(e.target.value)}
             placeholder="Type 'Delete' to confirm"
           />
-          
+
           <div className="flex justify-end space-x-2">
             <Button
               variant="secondary"
@@ -370,7 +351,7 @@ const AdminPanel: React.FC = () => {
             >
               Cancel
             </Button>
-            
+
             <Button
               variant="danger"
               onClick={handleClearConversations}

@@ -10,6 +10,7 @@ import RagRetrieve from './components/api/RagRetrieve';
 import Chatbot from './components/chatbot/Chatbot';
 import LockSearchPage from './pages/LockSearchPage';
 import AdminPanel from './components/admin/AdminPanel';
+import FeedbackManagement from './components/feedback/FeedbackManagement';
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -25,7 +26,7 @@ const ChatbotGuard = () => {
 
   // If user is chatbot role and trying to access non-allowed pages, redirect to chatbot
   if (user?.role === 'chatbot') {
-    const allowedPaths = ['/chatbot', '/settings', '/login', '/signup'];
+    const allowedPaths = ['/chatbot', '/settings', '/rag-retrieve', '/login', '/signup'];
     const isAllowed = allowedPaths.some(path => location.pathname.startsWith(path));
 
     if (!isAllowed) {
@@ -59,6 +60,7 @@ function App() {
                 <Route path="/rag-retrieve" element={<RagRetrieve />} />
                 <Route path="/chatbot" element={<Chatbot />} />
                 <Route path="/lock-search" element={<LockSearchPage />} />
+                <Route path="/feedback" element={<FeedbackManagement />} />
                 <Route path="/settings" element={<Settings />} />
 
                 {/* Admin routes */}

@@ -1,6 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import https from 'https';
+import { authenticateToken } from './auth.js';
 
 const router = express.Router();
 
@@ -71,8 +72,8 @@ router.post('/rag-chatbot', async (req, res) => {
   }
 });
 
-// Proxy endpoint for RAG retrieve
-router.post('/rag/retrieve', async (req, res) => {
+// Proxy endpoint for RAG retrieve (requires authentication - accessible by all authenticated users including chatbot role)
+router.post('/rag/retrieve', authenticateToken, async (req, res) => {
   try {
     const { text } = req.body;
 

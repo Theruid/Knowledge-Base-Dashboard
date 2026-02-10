@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, MessageCircle, Settings, Menu, X, Server, ChevronDown, ChevronRight, LayoutDashboard, Shield, Bot } from 'lucide-react';
+import { Database, MessageCircle, Settings, Menu, X, Server, ChevronDown, ChevronRight, LayoutDashboard, Shield, Bot, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     },
     {
       icon: <MessageCircle size={20} />,
-      label: 'Analyze Conversation',
+      label: 'Conversations',
       path: '/conversation',
       active: currentPath === '/conversation',
       roles: ['admin', 'user']
@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
       expandable: true,
       expanded: apiExpanded,
       toggle: toggleApiSection,
-      roles: ['admin', 'user'],
+      roles: ['admin', 'user', 'chatbot'],
       subItems: [
         {
           label: 'Retrieve From RAG',
@@ -69,6 +69,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           active: currentPath === '/lock-search'
         }
       ]
+    },
+    // Feedback link - only visible for admin and user roles
+    {
+      icon: <MessageSquare size={20} />,
+      label: 'Feedback',
+      path: '/feedback',
+      active: currentPath === '/feedback',
+      roles: ['admin', 'user']
     },
     // Admin panel link - only visible for admin users
     ...(isAdmin ? [

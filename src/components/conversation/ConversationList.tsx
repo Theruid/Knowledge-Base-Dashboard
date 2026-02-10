@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useConversation } from '../../contexts/ConversationContext';
-import { MessageCircle, RefreshCw, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, CheckCircle, FileText } from 'lucide-react';
+import { MessageCircle, RefreshCw, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, CheckCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 
@@ -29,10 +29,10 @@ const ConversationList: React.FC = () => {
   const handleRefresh = () => {
     fetchConversations(currentPage, searchTerm);
   };
-  
+
   // No need for frontend filtering anymore - it's handled by the backend
   const filteredConversations = conversations;
-  
+
   const handleSort = (field: 'Conversation_ID' | 'message_count') => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -53,21 +53,11 @@ const ConversationList: React.FC = () => {
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Conversations</h2>
           <p className="text-sm text-gray-500">
-            {loading ? 'Loading...' : onlyAnalyzed 
-              ? `${totalConversations} analyzed conversations with notes` 
-              : `${totalConversations} conversations found`}
+            {loading ? 'Loading...' : `${totalConversations} conversations found`}
           </p>
         </div>
-        
+
         <div className="flex gap-2">
-          <Button
-            variant={onlyAnalyzed ? "primary" : "secondary"}
-            icon={<FileText size={16} />}
-            onClick={() => setOnlyAnalyzed(!onlyAnalyzed)}
-            title="Show only analyzed conversations with notes"
-          >
-            Notes
-          </Button>
           <Button
             variant="secondary"
             icon={<RefreshCw size={16} />}
@@ -78,7 +68,7 @@ const ConversationList: React.FC = () => {
           </Button>
         </div>
       </div>
-      
+
       {/* Search bar */}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -92,7 +82,7 @@ const ConversationList: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-      
+
       {/* Error message */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -100,14 +90,14 @@ const ConversationList: React.FC = () => {
           <span className="block sm:inline"> {error}</span>
         </div>
       )}
-      
+
       {/* Loading state */}
       {loading && (
         <div className="flex justify-center items-center min-h-[200px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
-      
+
       {/* Empty state */}
       {!loading && filteredConversations.length === 0 && (
         <Card>
@@ -129,15 +119,15 @@ const ConversationList: React.FC = () => {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Conversation list */}
       {!loading && filteredConversations.length > 0 && (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('Conversation_ID')}
                 >
@@ -150,8 +140,8 @@ const ConversationList: React.FC = () => {
                     )}
                   </div>
                 </th>
-                <th 
-                  scope="col" 
+                <th
+                  scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort('message_count')}
                 >
@@ -171,8 +161,8 @@ const ConversationList: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredConversations.map((conversation, index) => (
-                <tr 
-                  key={conversation.Conversation_ID} 
+                <tr
+                  key={conversation.Conversation_ID}
                   className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${selectedConversationId === conversation.Conversation_ID ? 'bg-blue-50' : ''} hover:bg-blue-50 cursor-pointer`}
                   onClick={() => handleSelectConversation(conversation.Conversation_ID)}
                 >
@@ -206,7 +196,7 @@ const ConversationList: React.FC = () => {
           </table>
         </div>
       )}
-      
+
       {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center space-x-2 mt-8">
@@ -219,7 +209,7 @@ const ConversationList: React.FC = () => {
           >
             Previous
           </Button>
-          
+
           <div className="flex items-center space-x-1">
             {[...Array(totalPages)].map((_, i) => {
               const page = i + 1;
@@ -249,7 +239,7 @@ const ConversationList: React.FC = () => {
               return null;
             })}
           </div>
-          
+
           <Button
             variant="secondary"
             size="sm"

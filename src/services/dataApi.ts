@@ -10,12 +10,12 @@ export const dataApi = {
         'Accept': 'text/csv',
       },
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to export knowledge entries');
-      }
-      return response.blob();
-    });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to export knowledge entries');
+        }
+        return response.blob();
+      });
   },
 
   // Export conversations as CSV
@@ -26,31 +26,31 @@ export const dataApi = {
         'Accept': 'text/csv',
       },
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to export conversations');
-      }
-      return response.blob();
-    });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to export conversations');
+        }
+        return response.blob();
+      });
   },
 
   // Import conversations from CSV (append mode)
   importConversations: (file: File): Promise<{ success: boolean; message: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     return fetch(`${config.apiUrl}/import/conversations`, {
       method: 'POST',
       body: formData,
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to import conversations');
-      }
-      return response.json();
-    });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to import conversations');
+        }
+        return response.json();
+      });
   },
-  
+
   // Clear conversation table with confirmation
   clearConversations: (confirmationText: string): Promise<{ success: boolean; message: string; deletedCount?: number }> => {
     return fetch(`${config.apiUrl}/import/clear-conversations`, {
@@ -60,11 +60,11 @@ export const dataApi = {
       },
       body: JSON.stringify({ confirmationText }),
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Failed to clear conversations');
-      }
-      return response.json();
-    });
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to clear conversations');
+        }
+        return response.json();
+      });
   }
 };
