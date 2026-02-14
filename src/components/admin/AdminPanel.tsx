@@ -1,12 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Layout from '../layout/Layout';
 import UserManagement from './UserManagement';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
-import { Upload, Database, MessageCircle, AlertCircle, FileText, Trash2 } from 'lucide-react';
+import { Upload, Database, AlertCircle, Server } from 'lucide-react';
 import { exportApi } from '../../services/exportApi';
-import { dataApi } from '../../services/dataApi';
-import Modal from '../ui/Modal';
+import { settingsApi } from '../../services/settingsApi';
 
 const AdminPanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -15,24 +14,42 @@ const AdminPanel: React.FC = () => {
     conversations: boolean;
     import: boolean;
     notes: boolean;
-    clearConversations: boolean;
+    environment: boolean;
   }>({
     knowledge: false,
     conversations: false,
     import: false,
     notes: false,
-    clearConversations: false
+    environment: false
   });
 
-  // State for clear conversations modal
-  const [showClearModal, setShowClearModal] = useState(false);
-  const [confirmationText, setConfirmationText] = useState('');
+
 
   // Separate state for export and import operations
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
+  // Chatbot environment state
+  const [chatbotEnvironment, setChatbotEnvironment] = useState<'dev' | 'prod'>('dev');
+  const [environmentError, setEnvironmentError] = useState<string | null>(null);
+  const [environmentSuccess, setEnvironmentSuccess] = useState<string | null>(null);
+
+  // Load current environment on mount
+  useEffect(() => {
+    const loadEnvironment = async () => {
+      try {
+        const response = await settingsApi.getChatbotEnvironment();
+        if (response.success && response.environment) {
+          setChatbotEnvironment(response.environment);
+        }
+      } catch (error) {
+        console.error('Error loading chatbot environment:', error);
+      }
+    };
+    loadEnvironment();
+  }, []);
 
   const handleExportKnowledge = async () => {
     try {
@@ -66,37 +83,7 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleExportConversations = async () => {
-    try {
-      setLoading({ ...loading, conversations: true });
-      setExportError(null);
-      setExportSuccess(null);
-      setImportError(null);
-      setImportSuccess(null);
 
-      const blob = await exportApi.exportConversations();
-
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'conversations_export.csv';
-      document.body.appendChild(a);
-      a.click();
-
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      setExportSuccess('Conversations exported successfully!');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to export conversations';
-      setExportError(errorMessage);
-      console.error('Error exporting conversations:', err);
-    } finally {
-      setLoading({ ...loading, conversations: false });
-    }
-  };
 
   const handleExportNotes = async () => {
     try {
@@ -164,34 +151,7 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleClearConversations = async () => {
-    try {
-      setLoading({ ...loading, clearConversations: true });
-      setImportError(null);
-      setImportSuccess(null);
 
-      if (confirmationText !== 'Delete') {
-        setImportError('You must type "Delete" to confirm clearing the conversation table');
-        return;
-      }
-
-      const response = await dataApi.clearConversations(confirmationText);
-
-      if (response.success) {
-        setImportSuccess(`Successfully cleared ${response.deletedCount || 0} conversations from the database`);
-        setShowClearModal(false);
-        setConfirmationText('');
-      } else {
-        setImportError(response.message || 'Failed to clear conversations');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to clear conversations';
-      setImportError(errorMessage);
-      console.error('Error clearing conversations:', err);
-    } finally {
-      setLoading({ ...loading, clearConversations: false });
-    }
-  };
 
   const triggerFileInput = () => {
     if (fileInputRef.current) {
@@ -241,19 +201,7 @@ const AdminPanel: React.FC = () => {
                 </p>
               </div>
 
-              <div>
-                <Button
-                  variant="primary"
-                  icon={<MessageCircle size={16} />}
-                  onClick={handleExportConversations}
-                  isLoading={loading.conversations}
-                >
-                  Export Conversations
-                </Button>
-                <p className="mt-2 text-sm text-gray-500">
-                  Export all conversations as a CSV file.
-                </p>
-              </div>
+
             </div>
           </CardContent>
         </Card>
@@ -265,7 +213,7 @@ const AdminPanel: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <div className="flex space-x-4 mb-4">
+                <div className="mb-4">
                   <Button
                     variant="secondary"
                     icon={<Upload size={16} />}
@@ -274,21 +222,10 @@ const AdminPanel: React.FC = () => {
                   >
                     Import Conversations
                   </Button>
-
-                  <Button
-                    variant="danger"
-                    icon={<Trash2 size={16} />}
-                    onClick={() => setShowClearModal(true)}
-                    isLoading={loading.clearConversations}
-                  >
-                    Clear Conversation Table
-                  </Button>
                 </div>
 
                 <p className="mt-2 text-sm text-gray-500">
                   Import conversations from a CSV file. The file should have the following columns: Conversation_ID, IS_BOT, message, Time, LockNumber, Metric1, Metric2.
-                  <br />
-                  <strong>Note:</strong> Importing data will now append to existing data rather than replacing it. Use the Clear button if you want to remove all existing data.
                 </p>
                 <input
                   type="file"
@@ -313,56 +250,124 @@ const AdminPanel: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Chatbot Environment Settings */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl">Chatbot Environment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Switch between Development and Production chatbot API endpoints.
+              </p>
+
+              <div className="space-y-3">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="environment"
+                    value="dev"
+                    checked={chatbotEnvironment === 'dev'}
+                    onChange={async () => {
+                      try {
+                        setLoading({ ...loading, environment: true });
+                        setEnvironmentError(null);
+                        setEnvironmentSuccess(null);
+
+                        const response = await settingsApi.updateChatbotEnvironment('dev');
+
+                        if (response.success) {
+                          setChatbotEnvironment('dev');
+                          setEnvironmentSuccess('Chatbot environment switched to Development');
+                        } else {
+                          setEnvironmentError(response.message || 'Failed to update environment');
+                        }
+                      } catch (err) {
+                        const errorMessage = err instanceof Error ? err.message : 'Failed to update environment';
+                        setEnvironmentError(errorMessage);
+                      } finally {
+                        setLoading({ ...loading, environment: false });
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                    disabled={loading.environment}
+                  />
+                  <div className="flex-1">
+                    <div className="font-semibold">Dev</div>
+                    <div className="text-sm text-gray-500">
+                      https://sg-nlp-dev.ml.abramad.com/masoud-ragaas/rag_chatbot
+                    </div>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="environment"
+                    value="prod"
+                    checked={chatbotEnvironment === 'prod'}
+                    onChange={async () => {
+                      try {
+                        setLoading({ ...loading, environment: true });
+                        setEnvironmentError(null);
+                        setEnvironmentSuccess(null);
+
+                        const response = await settingsApi.updateChatbotEnvironment('prod');
+
+                        if (response.success) {
+                          setChatbotEnvironment('prod');
+                          setEnvironmentSuccess('Chatbot environment switched to Production');
+                        } else {
+                          setEnvironmentError(response.message || 'Failed to update environment');
+                        }
+                      } catch (err) {
+                        const errorMessage = err instanceof Error ? err.message : 'Failed to update environment';
+                        setEnvironmentError(errorMessage);
+                      } finally {
+                        setLoading({ ...loading, environment: false });
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                    disabled={loading.environment}
+                  />
+                  <div className="flex-1">
+                    <div className="font-semibold">Prod</div>
+                    <div className="text-sm text-gray-500">
+                      https://sg-nlp.ml.abramad.com/rag_chatbot
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {environmentError && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4" role="alert">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    <span>{environmentError}</span>
+                  </div>
+                </div>
+              )}
+
+              {environmentSuccess && (
+                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4" role="alert">
+                  <div className="flex items-center">
+                    <Server className="h-5 w-5 mr-2" />
+                    <span>{environmentSuccess}</span>
+                  </div>
+                </div>
+              )}
+
+              {loading.environment && (
+                <div className="text-sm text-gray-500 mt-2">
+                  Updating environment...
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Clear Conversations Modal */}
-      <Modal
-        isOpen={showClearModal}
-        onClose={() => {
-          setShowClearModal(false);
-          setConfirmationText('');
-        }}
-        title="Clear Conversation Table"
-      >
-        <div className="p-4">
-          <div className="mb-4 text-red-600 font-semibold">
-            Warning: This action will permanently delete all conversations from the database.
-          </div>
-
-          <p className="mb-4">
-            To confirm, please type "Delete" in the field below:
-          </p>
-
-          <input
-            type="text"
-            className="w-full p-2 border border-gray-300 rounded mb-4"
-            value={confirmationText}
-            onChange={(e) => setConfirmationText(e.target.value)}
-            placeholder="Type 'Delete' to confirm"
-          />
-
-          <div className="flex justify-end space-x-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowClearModal(false);
-                setConfirmationText('');
-              }}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              variant="danger"
-              onClick={handleClearConversations}
-              isLoading={loading.clearConversations}
-              disabled={confirmationText !== 'Delete'}
-            >
-              Clear All Conversations
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </Layout>
   );
 };

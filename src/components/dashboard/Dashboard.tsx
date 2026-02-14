@@ -142,6 +142,45 @@ const Dashboard: React.FC = () => {
           />
         </div>
 
+        {/* Feedback Reasons (Tags) */}
+        {feedbackStats.tagStats && Object.keys(feedbackStats.tagStats).length > 0 && (
+          <div className="mb-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center mb-4">
+                  <ThumbsDown className="h-5 w-5 text-red-600 mr-2" />
+                  <h3 className="text-lg font-semibold text-gray-800">Feedback Reasons</h3>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(feedbackStats.tagStats)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([tag, count]) => {
+                      // Calculate percentage based on total negative feedback
+                      const percentage = feedbackStats.totalNegative > 0
+                        ? (count / feedbackStats.totalNegative) * 100
+                        : 0;
+
+                      return (
+                        <div key={tag} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium text-gray-700">{tag}</span>
+                            <span className="text-gray-500">{count} ({Math.round(percentage)}%)</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className="bg-red-500 h-2.5 rounded-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* User Activity */}
         {userStats.length > 0 && (
           <Card>

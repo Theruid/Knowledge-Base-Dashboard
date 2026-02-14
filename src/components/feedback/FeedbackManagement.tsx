@@ -18,6 +18,7 @@ interface Feedback {
     session_id?: string;
     message_index?: number;
     created_at: string;
+    tag?: string;
 }
 
 const FeedbackManagement: React.FC = () => {
@@ -250,10 +251,22 @@ const FeedbackManagement: React.FC = () => {
                                                         </p>
                                                     </div>
 
+                                                    {/* Tags for negative feedback */}
+                                                    {feedback.feedback_type === 'negative' && feedback.tag && (
+                                                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                            <span className="text-xs text-gray-500">Tags:</span>
+                                                            {feedback.tag.split(', ').map((tag, idx) => (
+                                                                <span key={idx} className="inline-flex items-center px-3 py-1 text-sm rounded-full border border-red-300 bg-red-50 text-red-700">
+                                                                    {tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
                                                     {/* Reason for negative feedback */}
                                                     {feedback.feedback_type === 'negative' && feedback.reason && (
-                                                        <div className="bg-red-50 p-3 rounded-lg" dir="rtl">
-                                                            <p className="text-xs text-gray-500 mb-1">Reason:</p>
+                                                        <div className="bg-red-50 p-3 rounded-lg mt-2" dir="rtl">
+                                                            <p className="text-xs text-gray-500 mb-1">Additional Details:</p>
                                                             <p className="text-sm text-gray-800">{feedback.reason}</p>
                                                         </div>
                                                     )}

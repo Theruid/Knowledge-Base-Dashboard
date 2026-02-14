@@ -28,21 +28,12 @@ router.get('/list', async (req, res) => {
         c.Conversation_ID,
         COUNT(*) as message_count,
         MIN(c.Time) as first_message_time,
-        MAX(c.Time) as last_message_time,
-        CASE WHEN n.note_count > 0 THEN 1 ELSE 0 END as analyzed
+        MAX(c.Time) as last_message_time
       FROM AnalayzeData c
-      LEFT JOIN (
-        SELECT conversation_id, COUNT(*) as note_count 
-        FROM conversation_notes 
-        GROUP BY conversation_id
-      ) n ON c.Conversation_ID = n.conversation_id
     `;
 
     // Base query for counting total conversations
-    let countQuery = onlyAnalyzed
-      ? `SELECT COUNT(DISTINCT a.Conversation_ID) as total FROM AnalayzeData a 
-         INNER JOIN (SELECT DISTINCT conversation_id FROM conversation_notes) n ON a.Conversation_ID = n.conversation_id`
-      : 'SELECT COUNT(DISTINCT a.Conversation_ID) as total FROM AnalayzeData a';
+    let countQuery = 'SELECT COUNT(DISTINCT a.Conversation_ID) as total FROM AnalayzeData a';
     let countParams = [];
 
     const params = [];
@@ -70,10 +61,6 @@ router.get('/list', async (req, res) => {
       }
     }
 
-    // Add analyzed filter condition
-    if (onlyAnalyzed) {
-      whereConditions.push('n.note_count > 0');
-    }
 
     // Add WHERE clause if there are conditions
     if (whereConditions.length > 0) {
@@ -126,31 +113,6 @@ router.get('/ids', (req, res) => {
   }
 });
 
-// Get count of analyzed conversations
-router.get('/analyzed-count', (req, res) => {
-  try {
-    const result = db.prepare(`
-      SELECT COUNT(DISTINCT c.Conversation_ID) as count
-      FROM AnalayzeData c
-      INNER JOIN (
-        SELECT DISTINCT conversation_id
-        FROM conversation_notes
-      ) n ON c.Conversation_ID = n.conversation_id
-    `).get();
-
-    res.json({
-      success: true,
-      data: result.count
-    });
-  } catch (error) {
-    console.error('Error fetching analyzed conversation count:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch analyzed conversation count',
-      error: error.message
-    });
-  }
-});
 
 // Get conversation messages by ID
 router.get('/:id', (req, res) => {

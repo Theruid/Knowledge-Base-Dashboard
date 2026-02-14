@@ -2,6 +2,7 @@ export interface FeedbackStats {
     totalPositive: number;
     totalNegative: number;
     total: number;
+    tagStats?: Record<string, number>;
 }
 
 export interface UserStats {

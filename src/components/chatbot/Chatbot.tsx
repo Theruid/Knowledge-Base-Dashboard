@@ -30,8 +30,9 @@ const Chatbot: React.FC = () => {
     // Feedback state
     const [feedbackModal, setFeedbackModal] = useState(false);
     const [feedbackReason, setFeedbackReason] = useState('');
+    const [feedbackTags, setFeedbackTags] = useState<string[]>([]);
     const [currentFeedback, setCurrentFeedback] = useState<{ message: string; response: string } | null>(null);
-    const [feedbackGiven, setFeedbackGiven] = useState<Set<number>>(new Set());
+    const [feedbackGiven, setFeedbackGiven] = useState<Map<number, 'positive' | 'negative'>>(new Map());
 
     // Streaming state
     const [isStreaming, setIsStreaming] = useState(false);
@@ -144,7 +145,7 @@ const Chatbot: React.FC = () => {
         setIsStreaming(false);
         setMessages([]);
         setError(null);
-        setFeedbackGiven(new Set());
+        setFeedbackGiven(new Map());
         // Generate new session ID for new conversation
         setSessionId(generateSessionId());
     };
@@ -170,7 +171,7 @@ const Chatbot: React.FC = () => {
                     feedbackType: 'positive',
                     sessionId
                 });
-                setFeedbackGiven(prev => new Set(prev).add(messageIndex));
+                setFeedbackGiven(prev => new Map(prev).set(messageIndex, 'positive'));
             } catch (error) {
                 console.error('Error submitting feedback:', error);
             }
@@ -186,7 +187,8 @@ const Chatbot: React.FC = () => {
                 response: currentFeedback.response,
                 feedbackType: 'negative',
                 reason: feedbackReason,
-                sessionId
+                sessionId,
+                tag: feedbackTags.join(', ')
             });
 
             // Find which message this was for and mark as rated
@@ -194,11 +196,12 @@ const Chatbot: React.FC = () => {
                 m.role === 'assistant' && m.content === currentFeedback.response
             );
             if (messageIndex >= 0) {
-                setFeedbackGiven(prev => new Set(prev).add(messageIndex));
+                setFeedbackGiven(prev => new Map(prev).set(messageIndex, 'negative'));
             }
 
             setFeedbackModal(false);
             setFeedbackReason('');
+            setFeedbackTags([]);
             setCurrentFeedback(null);
         } catch (error) {
             console.error('Error submitting feedback:', error);
@@ -272,7 +275,7 @@ const Chatbot: React.FC = () => {
                                                     <button
                                                         onClick={() => handleFeedback(index, 'positive')}
                                                         disabled={feedbackGiven.has(index)}
-                                                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.has(index)
+                                                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.get(index) === 'positive'
                                                             ? 'text-green-600 bg-green-50 cursor-not-allowed'
                                                             : 'text-gray-500 hover:text-green-600 hover:bg-green-50'
                                                             }`}
@@ -283,7 +286,7 @@ const Chatbot: React.FC = () => {
                                                     <button
                                                         onClick={() => handleFeedback(index, 'negative')}
                                                         disabled={feedbackGiven.has(index)}
-                                                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.has(index)
+                                                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${feedbackGiven.get(index) === 'negative'
                                                             ? 'text-red-600 bg-red-50 cursor-not-allowed'
                                                             : 'text-gray-500 hover:text-red-600 hover:bg-red-50'
                                                             }`}
@@ -348,21 +351,50 @@ const Chatbot: React.FC = () => {
                 onClose={() => {
                     setFeedbackModal(false);
                     setFeedbackReason('');
+                    setFeedbackTags([]);
                     setCurrentFeedback(null);
                 }}
                 title="Why wasn't this helpful?"
             >
                 <div className="p-4">
                     <p className="mb-4 text-sm text-gray-600">
-                        Please help us improve by telling us what went wrong:
+                        لطفاً با انتخاب دلیل به ما کمک کنید:
                     </p>
 
+                    <div className="flex flex-wrap gap-2 mb-4" dir="rtl">
+                        {['پاسخ اشتباه است', 'پاسخ ناقص است', 'در پایگاه دانش وجود ندارد', 'زیاده گویی'].map((tag) => {
+                            const isSelected = feedbackTags.includes(tag);
+                            return (
+                                <button
+                                    key={tag}
+                                    onClick={() => {
+                                        if (isSelected) {
+                                            setFeedbackTags(feedbackTags.filter(t => t !== tag));
+                                        } else {
+                                            setFeedbackTags([...feedbackTags, tag]);
+                                        }
+                                    }}
+                                    className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${isSelected
+                                            ? 'bg-blue-100 border-blue-500 text-blue-700'
+                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {tag}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <p className="mb-2 text-sm text-gray-600" dir="rtl">
+                        توضیحات بیشتر (اجباری):
+                    </p>
                     <textarea
                         className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows={4}
+                        rows={3}
                         value={feedbackReason}
                         onChange={(e) => setFeedbackReason(e.target.value)}
-                        placeholder="Tell us what went wrong..."
+                        placeholder="لطفاً مشکل را توضیح دهید..."
+                        dir="rtl"
                     />
 
                     <div className="flex justify-end gap-2 mt-4">
@@ -370,6 +402,7 @@ const Chatbot: React.FC = () => {
                             onClick={() => {
                                 setFeedbackModal(false);
                                 setFeedbackReason('');
+                                setFeedbackTags([]);
                                 setCurrentFeedback(null);
                             }}
                             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -378,7 +411,7 @@ const Chatbot: React.FC = () => {
                         </button>
                         <button
                             onClick={submitNegativeFeedback}
-                            disabled={!feedbackReason.trim()}
+                            disabled={feedbackTags.length === 0 || !feedbackReason.trim()}
                             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Submit Feedback

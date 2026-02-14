@@ -9,6 +9,7 @@ export interface FeedbackRequest {
     conversationId?: string;
     messageIndex?: number;
     sessionId?: string;
+    tag?: string;
 }
 
 export interface FeedbackResponse {
@@ -30,6 +31,7 @@ export interface Feedback {
     session_id?: string;
     message_index?: number;
     created_at: string;
+    tag?: string;
 }
 
 export const chatbotFeedbackApi = {

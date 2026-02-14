@@ -109,8 +109,8 @@ const SupportConversationDetail: React.FC<SupportConversationDetailProps> = ({ s
                                     {/* Avatar */}
                                     <div
                                         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md ${message.role === 'user'
-                                                ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
-                                                : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
+                                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+                                            : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white'
                                             }`}
                                     >
                                         {message.role === 'user' ? <User size={18} /> : <Bot size={18} />}
@@ -120,8 +120,8 @@ const SupportConversationDetail: React.FC<SupportConversationDetailProps> = ({ s
                                     <div className={`flex-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                                         <div
                                             className={`inline-block max-w-[80%] p-4 rounded-2xl shadow-sm ${message.role === 'user'
-                                                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-none'
-                                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                                                ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-none'
+                                                : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
                                                 }`}
                                             dir="auto"
                                         >

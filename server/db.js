@@ -72,30 +72,6 @@ db.exec(`
   )
 `);
 
-// conversation_notes table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS conversation_notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    conversation_id INTEGER,
-    note TEXT,
-    tags TEXT,
-    user_id INTEGER,
-    username TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES Users(id)
-  )
-`);
-
-// tags table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    color TEXT DEFAULT '#3b82f6',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`);
 
 // chatbot_feedback table
 db.exec(`
@@ -139,6 +115,10 @@ if (!checkColumn('chatbot_feedback', 'session_id')) {
   db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN session_id TEXT`);
 }
 
+if (!checkColumn('chatbot_feedback', 'tag')) {
+  db.exec(`ALTER TABLE chatbot_feedback ADD COLUMN tag TEXT`);
+}
+
 // chatbot_conversations table - for storing chatbot chat sessions
 db.exec(`
   CREATE TABLE IF NOT EXISTS chatbot_conversations (
@@ -157,6 +137,20 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_session_id ON chatbot_conversations(session_id)`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_user_id ON chatbot_conversations(user_id)`);
 
+// System settings table - for storing application configuration
+db.exec(`
+  CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
+// Initialize default chatbot environment setting if not exists
+const chatbotEnvSetting = db.prepare('SELECT 1 FROM system_settings WHERE key = ?').get('chatbot_environment');
+if (!chatbotEnvSetting) {
+  db.prepare('INSERT INTO system_settings (key, value) VALUES (?, ?)').run('chatbot_environment', 'dev');
+  console.log('Initialized chatbot_environment setting to: dev');
+}
 
 export default db;

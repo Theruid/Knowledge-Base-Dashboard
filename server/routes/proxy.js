@@ -2,6 +2,7 @@ import express from 'express';
 import fetch from 'node-fetch';
 import https from 'https';
 import { authenticateToken } from './auth.js';
+import db from '../db.js';
 
 const router = express.Router();
 
@@ -9,6 +10,25 @@ const router = express.Router();
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
 });
+
+// Helper function to get chatbot API URL based on environment setting
+const getChatbotApiUrl = () => {
+  try {
+    const setting = db.prepare('SELECT value FROM system_settings WHERE key = ?').get('chatbot_environment');
+    const env = setting?.value || 'dev';
+
+    const urls = {
+      dev: 'https://sg-nlp-dev.ml.abramad.com/masoud-ragaas/rag_chatbot',
+      prod: 'https://sg-nlp.ml.abramad.com/rag_chatbot'
+    };
+
+    return urls[env] || urls.dev;
+  } catch (error) {
+    console.error('Error reading chatbot environment setting:', error);
+    // Fallback to dev URL
+    return 'https://sg-nlp-dev.ml.abramad.com/masoud-ragaas/rag_chatbot';
+  }
+};
 
 // Proxy endpoint for RAG Chatbot
 router.post('/rag-chatbot', async (req, res) => {
@@ -22,8 +42,8 @@ router.post('/rag-chatbot', async (req, res) => {
       });
     }
 
-    // URL from the main.py example
-    const CHATBOT_API_URL = 'https://sg-nlp-dev.ml.abramad.com/masoud-ragaas/rag_chatbot';
+    // Get API URL based on environment setting (dev/prod)
+    const CHATBOT_API_URL = getChatbotApiUrl();
     console.log(`Forwarding Chatbot request to: ${CHATBOT_API_URL}`);
 
     // Forward the request to the Chatbot API

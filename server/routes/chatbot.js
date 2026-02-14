@@ -7,7 +7,7 @@ const router = express.Router();
 // Submit chatbot feedback (unified for both chatbot and conversations)
 router.post('/feedback', authenticateToken, async (req, res) => {
   try {
-    const { message, response, feedbackType, reason, source = 'chatbot', conversationId, messageIndex, sessionId } = req.body;
+    const { message, response, feedbackType, reason, source = 'chatbot', conversationId, messageIndex, sessionId, tag } = req.body;
     const userId = req.user.id;
     const username = req.user.username;
 
@@ -26,10 +26,10 @@ router.post('/feedback', authenticateToken, async (req, res) => {
       });
     }
 
-    // Insert feedback with source
+    // Insert feedback with source and tag
     const stmt = db.prepare(`
-      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO chatbot_feedback (user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id, tag)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -42,7 +42,8 @@ router.post('/feedback', authenticateToken, async (req, res) => {
       source,
       conversationId || null,
       messageIndex !== undefined ? messageIndex : null,
-      sessionId || null
+      sessionId || null,
+      tag || null
     );
 
     res.json({
@@ -73,16 +74,35 @@ router.get('/feedback-stats', authenticateToken, async (req, res) => {
       params = [source];
     }
 
-    const positiveCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${whereClause}`).get('positive', ...params);
-    const negativeCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${whereClause}`).get('negative', ...params);
+    const positiveCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${source ? ' AND source = ?' : ''}`).get('positive', ...params);
+    const negativeCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${source ? ' AND source = ?' : ''}`).get('negative', ...params);
     const totalCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback${whereClause}`).get(...params);
+
+    // Get tag statistics for negative feedback
+    const tagStatsQuery = `
+      SELECT tag, COUNT(*) as count 
+      FROM chatbot_feedback 
+      WHERE feedback_type = 'negative' AND tag IS NOT NULL ${source ? ' AND source = ?' : ''}
+      GROUP BY tag
+      ORDER BY count DESC
+    `;
+
+    // params needs to be reused if source is present
+    const tagStatsResult = db.prepare(tagStatsQuery).all(...params);
+
+    // Convert array to object key-value pairs
+    const tagStats = {};
+    tagStatsResult.forEach(row => {
+      tagStats[row.tag] = row.count;
+    });
 
     res.json({
       success: true,
       stats: {
         totalPositive: positiveCount.count,
         totalNegative: negativeCount.count,
-        total: totalCount.count
+        total: totalCount.count,
+        tagStats
       }
     });
   } catch (error) {
@@ -152,7 +172,7 @@ router.get('/feedback', authenticateToken, async (req, res) => {
       : '';
 
     const feedbacks = db.prepare(`
-      SELECT id, user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id, created_at
+      SELECT id, user_id, username, message, response, feedback_type, reason, source, conversation_id, message_index, session_id, tag, created_at
       FROM chatbot_feedback
       ${whereClause}
       ORDER BY created_at DESC

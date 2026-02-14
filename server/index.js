@@ -7,10 +7,9 @@ import { conversationRoutes } from './routes/conversation.js';
 import { exportRoutes } from './routes/export.js';
 import { importRoutes } from './routes/import.js';
 import { proxyRoutes } from './routes/proxy.js';
-import { noteRoutes } from './routes/notes.js';
-import tagRoutes from './routes/tags.js';
 import { authRoutes, authenticateToken } from './routes/auth.js';
 import chatbotRoutes from './routes/chatbot.js';
+import { settingsRoutes } from './routes/settings.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,9 +28,8 @@ app.use('/api/conversation', conversationRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/proxy', proxyRoutes);
-app.use('/api/notes', noteRoutes);
-app.use('/api/tags', tagRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

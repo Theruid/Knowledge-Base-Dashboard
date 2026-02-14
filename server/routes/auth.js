@@ -32,9 +32,10 @@ router.post('/signup', async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Insert new user
-    const stmt = db.prepare('INSERT INTO Users (username, email, password) VALUES (?, ?, ?)');
-    const result = stmt.run(username, email, hashedPassword);
+    // Create user with 'chatbot' as default role
+    const result = db.prepare(
+      'INSERT INTO Users (username, email, password, role) VALUES (?, ?, ?, ?)'
+    ).run(username, email, hashedPassword, 'chatbot');
 
     // Do not generate JWT token for signup - users need to be activated first
 
