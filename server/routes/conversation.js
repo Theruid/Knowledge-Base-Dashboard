@@ -28,8 +28,24 @@ router.get('/list', async (req, res) => {
         c.Conversation_ID,
         COUNT(*) as message_count,
         MIN(c.Time) as first_message_time,
-        MAX(c.Time) as last_message_time
+        MAX(c.Time) as last_message_time,
+        CASE 
+          WHEN bc.bot_count = fc.feedback_count AND bc.bot_count > 0 THEN 1 
+          ELSE 0 
+        END as analyzed
       FROM AnalayzeData c
+      LEFT JOIN (
+        SELECT Conversation_ID, COUNT(*) as bot_count 
+        FROM AnalayzeData 
+        WHERE IS_BOT = 1 
+        GROUP BY Conversation_ID
+      ) bc ON c.Conversation_ID = bc.Conversation_ID
+      LEFT JOIN (
+        SELECT conversation_id, COUNT(DISTINCT message_index) as feedback_count
+        FROM chatbot_feedback
+        WHERE source = 'conversation'
+        GROUP BY conversation_id
+      ) fc ON c.Conversation_ID = fc.conversation_id
     `;
 
     // Base query for counting total conversations

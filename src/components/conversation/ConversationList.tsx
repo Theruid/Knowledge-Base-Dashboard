@@ -168,7 +168,7 @@ const ConversationList: React.FC = () => {
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
                     {conversation.analyzed === 1 ? (
-                      <span className="mr-2 text-green-500" title="This conversation has been analyzed with notes/tags">
+                      <span className="mr-2 text-green-500" title="All bot messages have received feedback">
                         <CheckCircle size={16} />
                       </span>
                     ) : null}
