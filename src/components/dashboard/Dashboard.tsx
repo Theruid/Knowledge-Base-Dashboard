@@ -271,7 +271,7 @@ const Dashboard: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Messages Sent</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Feedback Submited</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
