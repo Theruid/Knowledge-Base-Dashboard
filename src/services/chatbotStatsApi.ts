@@ -2,7 +2,18 @@ export interface FeedbackStats {
     totalPositive: number;
     totalNegative: number;
     total: number;
-    tagStats?: Record<string, number>;
+    chatbot?: {
+        totalPositive: number;
+        totalNegative: number;
+        total: number;
+    };
+    conversation?: {
+        totalPositive: number;
+        totalNegative: number;
+        total: number;
+    };
+    chatbotTagStats?: Record<string, number>;
+    conversationTagStats?: Record<string, number>;
 }
 
 export interface UserStats {

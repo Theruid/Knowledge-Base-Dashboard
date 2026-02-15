@@ -64,52 +64,86 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 // Get feedback statistics (admin only) - supports filtering by source
 router.get('/feedback-stats', authenticateToken, async (req, res) => {
   try {
-    const { source } = req.query; // 'chatbot', 'conversation', or undefined (all)
+    const { source } = req.query;
+    const params = source ? [source] : [];
 
-    let whereClause = '';
-    let params = [];
+    // Get counts for chatbot source
+    const chatbotPositive = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'positive' AND source = 'chatbot'`).get();
+    const chatbotNegative = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'negative' AND source = 'chatbot'`).get();
+    const chatbotTotal = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE source = 'chatbot'`).get();
 
-    if (source) {
-      whereClause = ' WHERE source = ?';
-      params = [source];
-    }
+    // Get counts for conversation source
+    const conversationPositive = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'positive' AND source = 'conversation'`).get();
+    const conversationNegative = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'negative' AND source = 'conversation'`).get();
+    const conversationTotal = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE source = 'conversation'`).get();
 
-    const positiveCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${source ? ' AND source = ?' : ''}`).get('positive', ...params);
-    const negativeCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = ?${source ? ' AND source = ?' : ''}`).get('negative', ...params);
-    const totalCount = db.prepare(`SELECT COUNT(*) as count FROM chatbot_feedback${whereClause}`).get(...params);
+    // Get overall counts (for backward compatibility)
+    const positiveCountQuery = `SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'positive'${source ? ' AND source = ?' : ''}`;
+    const positiveCount = db.prepare(positiveCountQuery).get(...params);
 
-    // Get tag statistics for negative feedback
-    const tagStatsQuery = `
+    const negativeCountQuery = `SELECT COUNT(*) as count FROM chatbot_feedback WHERE feedback_type = 'negative'${source ? ' AND source = ?' : ''}`;
+    const negativeCount = db.prepare(negativeCountQuery).get(...params);
+
+    const totalCountQuery = `SELECT COUNT(*) as count FROM chatbot_feedback${source ? ' WHERE source = ?' : ''}`;
+    const totalCount = db.prepare(totalCountQuery).get(...params);
+
+    // Get tag statistics for chatbot source
+    const chatbotTagStatsQuery = `
       SELECT tag, COUNT(*) as count 
       FROM chatbot_feedback 
-      WHERE feedback_type = 'negative' AND tag IS NOT NULL ${source ? ' AND source = ?' : ''}
+      WHERE feedback_type = 'negative' AND tag IS NOT NULL AND source = 'chatbot'
       GROUP BY tag
       ORDER BY count DESC
     `;
+    const chatbotTagStatsResult = db.prepare(chatbotTagStatsQuery).all();
+    const chatbotTagStats = {};
+    chatbotTagStatsResult.forEach(row => {
+      chatbotTagStats[row.tag] = row.count;
+    });
 
-    // params needs to be reused if source is present
-    const tagStatsResult = db.prepare(tagStatsQuery).all(...params);
-
-    // Convert array to object key-value pairs
-    const tagStats = {};
-    tagStatsResult.forEach(row => {
-      tagStats[row.tag] = row.count;
+    // Get tag statistics for conversation source
+    const conversationTagStatsQuery = `
+      SELECT tag, COUNT(*) as count 
+      FROM chatbot_feedback 
+      WHERE feedback_type = 'negative' AND tag IS NOT NULL AND source = 'conversation'
+      GROUP BY tag
+      ORDER BY count DESC
+    `;
+    const conversationTagStatsResult = db.prepare(conversationTagStatsQuery).all();
+    const conversationTagStats = {};
+    conversationTagStatsResult.forEach(row => {
+      conversationTagStats[row.tag] = row.count;
     });
 
     res.json({
       success: true,
       stats: {
+        // Overall stats (backward compatibility)
         totalPositive: positiveCount.count,
         totalNegative: negativeCount.count,
         total: totalCount.count,
-        tagStats
+        // Chatbot source stats
+        chatbot: {
+          totalPositive: chatbotPositive.count,
+          totalNegative: chatbotNegative.count,
+          total: chatbotTotal.count
+        },
+        // Conversation source stats
+        conversation: {
+          totalPositive: conversationPositive.count,
+          totalNegative: conversationNegative.count,
+          total: conversationTotal.count
+        },
+        // Tag stats by source
+        chatbotTagStats,
+        conversationTagStats
       }
     });
   } catch (error) {
     console.error('Error fetching feedback stats:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching feedback statistics',
+      message: 'Failed to fetch feedback statistics',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

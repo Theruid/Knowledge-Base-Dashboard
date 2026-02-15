@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useConversation } from '../../contexts/ConversationContext';
 import { MessageCircle, BarChart, X, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Card, CardContent } from '../ui/Card';
@@ -31,6 +31,15 @@ const ConversationDetail: React.FC = () => {
       return timestamp;
     }
   };
+
+  // Reset feedback state when conversation changes
+  React.useEffect(() => {
+    setFeedbackGiven(new Map());
+    setFeedbackModal(false);
+    setFeedbackReason('');
+    setFeedbackTags([]);
+    setCurrentFeedback(null);
+  }, [selectedConversationId]);
 
   const handleFeedback = async (messageIndex: number, feedbackType: 'positive' | 'negative') => {
     if (feedbackGiven.has(messageIndex) || !selectedConversationId) return;
@@ -296,8 +305,8 @@ const ConversationDetail: React.FC = () => {
                     }
                   }}
                   className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${isSelected
-                      ? 'bg-blue-100 border-blue-500 text-blue-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-100 border-blue-500 text-blue-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                     }`}
                 >
                   {tag}
