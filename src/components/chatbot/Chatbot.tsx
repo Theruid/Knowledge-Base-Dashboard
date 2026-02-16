@@ -34,10 +34,6 @@ const Chatbot: React.FC = () => {
     const [currentFeedback, setCurrentFeedback] = useState<{ message: string; response: string } | null>(null);
     const [feedbackGiven, setFeedbackGiven] = useState<Map<number, 'positive' | 'negative'>>(new Map());
 
-    // Streaming state
-    const [isStreaming, setIsStreaming] = useState(false);
-    const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -46,50 +42,9 @@ const Chatbot: React.FC = () => {
         scrollToBottom();
     }, [messages]);
 
-    // Cleanup streaming interval on unmount
-    useEffect(() => {
-        return () => {
-            if (streamingIntervalRef.current) {
-                clearInterval(streamingIntervalRef.current);
-            }
-        };
-    }, []);
-
-    const streamResponse = (text: string) => {
-        setIsStreaming(true);
-        const words = text.split(' ');
-        let currentIndex = 0;
-        let accumulatedText = '';
-
-        // Add empty bot message when streaming starts
-        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-        const messageIndex = messages.length + 1; // +1 for user message already added
-
-        streamingIntervalRef.current = setInterval(() => {
-            if (currentIndex < words.length) {
-                accumulatedText += (currentIndex > 0 ? ' ' : '') + words[currentIndex];
-
-                setMessages(prev => {
-                    const updated = [...prev];
-                    if (updated[messageIndex]) {
-                        updated[messageIndex].content = accumulatedText;
-                    }
-                    return updated;
-                });
-                currentIndex++;
-            } else {
-                if (streamingIntervalRef.current) {
-                    clearInterval(streamingIntervalRef.current);
-                    streamingIntervalRef.current = null;
-                }
-                setIsStreaming(false);
-            }
-        }, 50); // 50ms per word for smooth streaming effect
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || isLoading || isStreaming) return;
+        if (!input.trim() || isLoading) return;
 
         const userMessage: ChatMessage = { role: 'user', content: input };
         const userInput = input; // Store before clearing
@@ -99,12 +54,12 @@ const Chatbot: React.FC = () => {
         setError(null);
 
         try {
-            // Save user message to database
-            await chatbotConversationApi.saveMessage({
+            // Save user message to database (non-blocking)
+            chatbotConversationApi.saveMessage({
                 session_id: sessionId,
                 role: 'user',
                 message: userInput
-            });
+            }).catch(err => console.error('Failed to save user message:', err));
 
             const historyToSend = messages;
             const response = await chatbotApi.sendMessage(userMessage.content, historyToSend);
@@ -119,15 +74,15 @@ const Chatbot: React.FC = () => {
                 botContent = response ? JSON.stringify(response) : 'No response content';
             }
 
-            // Save assistant message to database
-            await chatbotConversationApi.saveMessage({
+            // Display the response immediately
+            setMessages(prev => [...prev, { role: 'assistant', content: botContent }]);
+
+            // Save assistant message to database (non-blocking)
+            chatbotConversationApi.saveMessage({
                 session_id: sessionId,
                 role: 'assistant',
                 message: botContent
-            });
-
-            // Stream the response (will add message when streaming starts)
-            streamResponse(botContent);
+            }).catch(err => console.error('Failed to save assistant message:', err));
         } catch (err: any) {
             console.error('Chat error:', err);
             setError(err.message || 'Something went wrong. Please try again.');
@@ -137,12 +92,6 @@ const Chatbot: React.FC = () => {
     };
 
     const handleClearChat = () => {
-        // Stop streaming if active
-        if (streamingIntervalRef.current) {
-            clearInterval(streamingIntervalRef.current);
-            streamingIntervalRef.current = null;
-        }
-        setIsStreaming(false);
         setMessages([]);
         setError(null);
         setFeedbackGiven(new Map());
@@ -375,8 +324,8 @@ const Chatbot: React.FC = () => {
                                         }
                                     }}
                                     className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${isSelected
-                                            ? 'bg-blue-100 border-blue-500 text-blue-700'
-                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-blue-100 border-blue-500 text-blue-700'
+                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     {tag}

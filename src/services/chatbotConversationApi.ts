@@ -26,7 +26,8 @@ export const chatbotConversationApi = {
     saveMessage: async (data: SaveMessageRequest) => {
         return await fetchApi('/chatbot/conversation/save', {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            timeout: 10000 // 10 seconds for database writes
         });
     },
 

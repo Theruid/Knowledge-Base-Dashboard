@@ -46,47 +46,79 @@ router.post('/rag-chatbot', async (req, res) => {
     const CHATBOT_API_URL = getChatbotApiUrl();
     console.log(`Forwarding Chatbot request to: ${CHATBOT_API_URL}`);
 
-    // Forward the request to the Chatbot API
-    const response = await fetch(CHATBOT_API_URL, {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'X-Customer-ID': 'sepidar_test', // Hardcoded as per plan
-        'X-API-Key': 'dev_api_key',       // Hardcoded as per plan
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
+    // Add timeout handling - 90 seconds for RAG responses
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      console.error('Chatbot API request timed out after 90 seconds');
+    }, 90000);
+
+    try {
+      // Forward the request to the Chatbot API
+      const response = await fetch(CHATBOT_API_URL, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'X-Customer-ID': 'sepidar_test', // Hardcoded as per plan
+          'X-API-Key': 'dev_api_key',       // Hardcoded as per plan
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text,
+          history: history || []
+        }),
+        agent: httpsAgent,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      // The external API returns plain text/markdown, not JSON
+      const responseText = await response.text();
+      console.log(`Chatbot API response status: ${response.status}`);
+      console.log(`Chatbot API response body (first 200 chars): ${responseText.substring(0, 200)}...`);
+
+      if (!response.ok) {
+        console.error(`Chatbot API error ${response.status}`);
+        return res.status(response.status).json({
+          success: false,
+          message: `Chatbot API responded with status: ${response.status}`,
+          debug: responseText
+        });
+      }
+
+      // Return the text response wrapped in a JSON object
+      res.json({
+        success: true,
+        answer: responseText,
         history: history || []
-      }),
-      agent: httpsAgent
-    });
+      });
+    } catch (error) {
+      clearTimeout(timeout);
 
-    // The external API returns plain text/markdown, not JSON
-    const responseText = await response.text();
-    console.log(`Chatbot API response status: ${response.status}`);
-    console.log(`Chatbot API response body (first 200 chars): ${responseText.substring(0, 200)}...`);
+      // Handle timeout errors separately
+      if (error.name === 'AbortError') {
+        console.error('Chatbot API request was aborted due to timeout');
+        return res.status(504).json({
+          success: false,
+          message: 'The chatbot is taking too long to respond. Please try again.',
+          error: 'Request timeout'
+        });
+      }
 
-    if (!response.ok) {
-      console.error(`Chatbot API error ${response.status}`);
-      return res.status(response.status).json({
+      console.error('Error proxying request to Chatbot API:', error);
+      res.status(500).json({
         success: false,
-        message: `Chatbot API responded with status: ${response.status}`,
-        debug: responseText
+        message: 'Failed to retrieve response from Chatbot API',
+        error: error.message
       });
     }
-
-    // Return the text response wrapped in a JSON object
-    res.json({
-      success: true,
-      answer: responseText,
-      history: history || []
-    });
   } catch (error) {
-    console.error('Error proxying request to Chatbot API:', error);
+    // This catch handles errors from parameter validation or unexpected errors
+    console.error('Unexpected error in rag-chatbot endpoint:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve response from Chatbot API',
+      message: 'Internal server error',
       error: error.message
     });
   }
@@ -108,28 +140,60 @@ router.post('/rag/retrieve', authenticateToken, async (req, res) => {
     const RAG_API_URL = process.env.RAG_API_URL || 'http://172.17.224.86:8686/rag/retrieve/';
     console.log(`Forwarding RAG request to: ${RAG_API_URL}`);
 
-    // Forward the request to the actual RAG API
-    const response = await fetch(RAG_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
-    });
+    // Add timeout handling - 30 seconds for RAG retrieval
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      console.error('RAG API request timed out after 30 seconds');
+    }, 30000);
 
-    if (!response.ok) {
-      throw new Error(`RAG API responded with status: ${response.status}`);
+    try {
+      // Forward the request to the actual RAG API
+      const response = await fetch(RAG_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new Error(`RAG API responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Return the data from the RAG API
+      res.json(data);
+    } catch (error) {
+      clearTimeout(timeout);
+
+      // Handle timeout errors
+      if (error.name === 'AbortError') {
+        console.error('RAG API request was aborted due to timeout');
+        return res.status(504).json({
+          success: false,
+          message: 'RAG retrieval timed out. Please try again.',
+          error: 'Request timeout'
+        });
+      }
+
+      console.error('Error proxying request to RAG API:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve data from RAG API',
+        error: error.message
+      });
     }
-
-    const data = await response.json();
-
-    // Return the data from the RAG API
-    res.json(data);
   } catch (error) {
-    console.error('Error proxying request to RAG API:', error);
+    // Handles errors from validation or unexpected issues
+    console.error('Unexpected error in rag/retrieve endpoint:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve data from RAG API',
+      message: 'Internal server error',
       error: error.message
     });
   }

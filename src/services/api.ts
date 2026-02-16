@@ -1,15 +1,20 @@
 import { KnowledgeEntry, ApiResponse, PaginatedResponse } from '../types';
 import { config } from '../config';
 
-// Generic fetch function with error handling
+// Generic fetch function with error handling and timeout support
 export async function fetchApi<T>(
-  endpoint: string, 
-  options?: RequestInit
+  endpoint: string,
+  options?: RequestInit & { timeout?: number }
 ): Promise<T> {
   try {
     // Get the authentication token from localStorage
     const token = localStorage.getItem('token');
-    
+
+    // Create an AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutDuration = options?.timeout || 30000; // Default 30 seconds
+    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
     const response = await fetch(`${config.apiUrl}${endpoint}`, {
       ...options,
       headers: {
@@ -18,28 +23,36 @@ export async function fetchApi<T>(
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options?.headers,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json();
-      
+
       // Handle token expiration (401 Unauthorized)
       if (response.status === 401 && errorData.message?.includes('expired')) {
         console.log('Token expired, redirecting to login');
         // Clear local storage
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
+
         // Redirect to login page
         window.location.href = '/login';
         throw new Error('Authentication expired. Please log in again.');
       }
-      
+
       throw new Error(errorData.message || 'An error occurred');
     }
 
     return await response.json();
   } catch (error) {
+    // Provide better error messages for timeouts
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('API request timed out:', endpoint);
+      throw new Error('Request timed out. Please try again.');
+    }
     console.error('API request failed:', error);
     throw error;
   }
@@ -53,7 +66,7 @@ export const knowledgeApi = {
       page: page.toString(),
       limit: limit.toString(),
     });
-    
+
     if (search) {
       searchParams.append('search', search);
     }
@@ -61,7 +74,7 @@ export const knowledgeApi = {
     if (domain) {
       searchParams.append('domain', domain);
     }
-    
+
     return fetchApi<PaginatedResponse<KnowledgeEntry>>(
       `/knowledge?${searchParams.toString()}`
     );
@@ -94,10 +107,10 @@ export const knowledgeApi = {
       method: 'DELETE',
     });
   },
-  
+
   // Get count of unique knowledge numbers
-  getUniqueKnowledgeCount: (): Promise<ApiResponse<{uniqueCount: number}>> => {
-    return fetchApi<ApiResponse<{uniqueCount: number}>>('/knowledge/stats/unique-knowledge');
+  getUniqueKnowledgeCount: (): Promise<ApiResponse<{ uniqueCount: number }>> => {
+    return fetchApi<ApiResponse<{ uniqueCount: number }>>('/knowledge/stats/unique-knowledge');
   },
 
   // Get all available domains
